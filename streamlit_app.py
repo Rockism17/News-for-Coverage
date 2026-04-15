@@ -46,19 +46,26 @@ WATCHLIST_GROUPS = {
     "All": ["Alaris", "Bridgemarq", "Canaccord", "Diversified Royalty", "Dominion Lending", "Exchange Income", "Fairfax", "goeasy", "Propel", "RFA Financial", "Trisura", "VersaBank", "Westaim"]
 }
 
+# --- PRIMARY TICKER LIST (Loose Matching) ---
+# These are the main companies you cover. Matching for these is less strict.
 PRIMARY_TICKERS = [
     "Alaris", "Bridgemarq", "Canaccord", "Diversified", "Dominion", 
     "Exchange Income", "Fairfax", "goeasy", "Propel", "RFA", 
     "Trisura", "Versabank", "Westaim"
 ]
 
-CREDIBLE_KEYWORDS = [
-    "globe", "bloomberg", "reuter", "financial post", "cnbc", "yahoo", 
-    "wsj", "wall street", "barron", "forbes", "marketwatch", "newswire", 
-    "cision", "accesswire", "newsfile", "press", "official"
+# --- SOURCE CATEGORIES ---
+CREDIBLE_SOURCES = [
+    "The Globe and Mail", "Bloomberg", "Reuters", "Financial Post", "CNBC", 
+    "Yahoo Finance", "The Wall Street Journal", "WSJ", "Barron's", "Forbes", 
+    "Financial Times", "MarketWatch", "GlobeNewswire", "PR Newswire", "Business Wire",
+    "Canada Newswire", "Cision", "Accesswire", "Newsfile", "Newswire.ca"
 ]
 
-SOCIAL_SOURCES = ["twitter", "x.com", "linkedin", "facebook", "truth social", "reddit", "substack", "medium"]
+SOCIAL_SOURCES = [
+    "Twitter", "X.com", "LinkedIn", "Facebook", "Truth Social", "Reddit", 
+    "Substack", "Medium", "StockTwits", "Instagram"
+]
 
 LOGO_URL = "https://cormark.com/Portals/_default/Skins/Cormark/Images/Cormark_4C_183x42px.png"
 
@@ -68,14 +75,14 @@ st.logo(LOGO_URL, link="https://cormark.com/")
 if 'news_data' not in st.session_state:
     st.session_state.news_data = []
 
-# --- 2. SIDEBAR ---
+# --- 2. SIDEBAR: FILTERS ---
 with st.sidebar:
     st.title("DivFin Settings")
     selected_group = st.selectbox("Watchlist Category", options=list(WATCHLIST_GROUPS.keys()))
     
     st.divider()
     st.header("Source Filters")
-    show_credible = st.checkbox("⭐ Show Credible (Yahoo, Globe, Wires)", value=True)
+    show_credible = st.checkbox("⭐ Show Credible (Wires & Big Media)", value=True)
     show_social = st.checkbox("📱 Show Social Media & Blogs", value=False)
     show_other = st.checkbox("🌑 Show All Other Sources", value=False)
 
@@ -84,16 +91,18 @@ with st.sidebar:
 
 # --- 3. THE SCANNER ---
 def get_google_news(company_name, watchlist_names):
-    # Determine if it's a primary ticker
+    # Determine strictness level
     is_primary = any(ticker.lower() in company_name.lower() for ticker in PRIMARY_TICKERS)
     
-    # Clean version for comparison
+    # Clean the name
     clean_name = company_name.replace(", LLC", "").replace(" LLC", "").replace(", Inc.", "").replace(" Inc.", "")
     
-    # SEARCH QUERY
+    # 1. SEARCH STRATEGY
     if is_primary:
+        # Broad search for parents
         query = quote(f'{clean_name} when:7d')
     else:
+        # Strict quote search for subsidiaries/CEOs
         query = quote(f'"{clean_name}" when:7d')
     
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
@@ -107,32 +116,33 @@ def get_google_news(company_name, watchlist_names):
         return []
 
     results = []
-    for entry in feed.entries[:20]:
+    for entry in feed.entries[:15]:
         headline = entry.title
         source_name = entry.source.get('title', 'Unknown')
         
-        # --- REINSTATED STRICT VALIDATION ---
-        # Rule: Name MUST be in the headline. 
+        # 2. VALIDATION STRATEGY
         if is_primary:
-            # Look for the core brand name (e.g., Alaris) in the title
-            core_brand = clean_name.split()[0]
-            if core_brand.lower() not in headline.lower():
+            # LOOSE: Check if the first word (e.g. Alaris) is in title
+            core_word = clean_name.split()[0]
+            if core_word.lower() not in headline.lower():
                 continue
         else:
-            # Look for the exact phrase (e.g., 3E, LLC) in the title
+            # STRICT: Full name must be in title
             if clean_name.lower() not in headline.lower():
                 continue
 
-        # CATEGORIZATION
+        # 3. CATEGORIZATION STRATEGY
         category = "Other"
-        source_lower = source_name.lower()
         
-        is_premium = any(kw in source_lower for kw in CREDIBLE_KEYWORDS)
-        is_corporate = any(name.lower() in source_lower for name in watchlist_names)
+        # Check Big Media / Wires
+        is_premium = any(s.lower() in source_name.lower() for s in CREDIBLE_SOURCES)
+        
+        # Check if the Source name matches any of our watchlist companies (Corporate Website)
+        is_corporate = any(name.lower() in source_name.lower() for name in watchlist_names)
         
         if is_premium or is_corporate:
             category = "Credible"
-        elif any(s in source_lower for s in SOCIAL_SOURCES):
+        elif any(s.lower() in source_name.lower() for s in SOCIAL_SOURCES):
             category = "Social"
             
         parsed_date = entry.get('published_parsed')
@@ -149,16 +159,20 @@ def get_google_news(company_name, watchlist_names):
         })
     return results
 
-# --- 4. MAIN UI ---
+# --- 4. MAIN UI & LOGIC ---
+st.title("DivFin News Screener")
+st.subheader(f"Current Watchlist: {selected_group}")
+
 if st.button(f"Search {selected_group} List", use_container_width=True):
     all_hits = []
     current_watchlist = WATCHLIST_GROUPS[selected_group]
     
-    with st.spinner('Refining intelligence feed...'):
+    with st.spinner('Gathering intelligence...'):
         for company in current_watchlist:
             all_hits.extend(get_google_news(company, current_watchlist))
     
     if all_hits:
+        # Deduplicate and Save
         df_hits = pd.DataFrame(all_hits).drop_duplicates(subset=['Headline'])
         st.session_state.news_data = df_hits.to_dict('records')
     else:
@@ -167,6 +181,7 @@ if st.button(f"Search {selected_group} List", use_container_width=True):
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data).sort_values(by="sort_key", ascending=False)
     
+    # Filter Categories
     allowed = []
     if show_credible: allowed.append("Credible")
     if show_social: allowed.append("Social")
