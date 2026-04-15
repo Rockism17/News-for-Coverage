@@ -11,8 +11,7 @@ WATCHLIST_GROUPS = {
                "Cresa, LLC", "DNT Construction, LLC", "Edgewater Technical Associates, LLC", "Fleet Advantage, LLC", "Federal Management Partners, LLC (FMP)", "GWM Holdings, Inc. (GlobalWide Media)", 
                "Heritage Restoration, LLC", "Kubik, LP", "LMS Reinforcing Steel Group", "McCoy Roofing Holdings LLC", "Ohana Growth Partners, LLC", "Optimus SBR", 
                "Professional Electric Contractors of Connecticut, Inc. (PEC)", "Sagamore Plumbing and Heating LLC", "SCR Mining & Tunnelling L.P.", "The Shipyard, LLC", "Unify Consulting, LLC", 
-               "Vehicle Leasing Holdings, LLC (D&M Leasing)", "3E", "Accscient", "Amur", "Berg Demo", "SonoBello", "Carey Electric", "Cresa", "DNT", "Edgewater", "Fleet Advantage", "FMP", "GlobalWide", 
-               "Heritage", "Kubik", "LMS", "McCoy Roofing", "Ohana", "Optimus SBR", "PEC", "Sagamore", "SCR", "The Shipyard", "Unify", "D&M Leasing"],
+               "Vehicle Leasing Holdings, LLC (D&M Leasing)"],
     
     "Bridgemarq (BRE)": ["Bridgemarq Real Estate Services", "BRE.TO", "Royal LePage", "Proprio Direct", "Via Capitale", "Spencer Enright", "Phil Soper", "Johnston & Daniel"],
     
