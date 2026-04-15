@@ -70,7 +70,7 @@ if 'news_data' not in st.session_state:
 
 # --- 2. SIDEBAR: THE DUAL-FILTER SYSTEM ---
 with st.sidebar:
-    st.title("Purdchuk Settings")
+    st.title("DivFin Settings")
     selected_group = st.selectbox("Watchlist Category", options=list(WATCHLIST_GROUPS.keys()))
     
     st.divider()
@@ -120,7 +120,7 @@ def get_google_news(company_name):
     return results
 
 # --- 4. MAIN UI & LOGIC ---
-st.title("Purdchuk News Screener")
+st.title("DivFin News Screener")
 st.subheader(f"Current Watchlist: {selected_group}")
 
 if st.button(f" Search {selected_group} List", use_container_width=True):
