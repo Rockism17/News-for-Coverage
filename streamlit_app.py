@@ -82,18 +82,22 @@ WATCHLIST_GROUPS = {
            ],
 }
 
+# --- PRIMARY TICKER LIST (Loose Matching) ---
+# These are the main companies you cover. Matching for these is less strict.
+PRIMARY_TICKERS = ["Alaris", "Bridgemarq", "Canaccord", "Diversified", "Dominion", "Exchange Income", "Fairfax", "goeasy", "Propel", "RFA", "Trisura", "Versabank", "Westaim"]
+
 # --- SOURCE CATEGORIES ---
-# 1. Credible/White Label Sources
 CREDIBLE_SOURCES = [
     "The Globe and Mail", "Bloomberg", "Reuters", "Financial Post", "CNBC", 
     "Yahoo Finance", "The Wall Street Journal", "WSJ", "Barron's", "Forbes", 
     "Financial Times", "MarketWatch", "GlobeNewswire", "PR Newswire", "Business Wire",
-    "Canada Newswire", "Cision"]
+    "Canada Newswire", "Cision", "Accesswire", "Newsfile", "Newswire.ca"
+]
 
-# 2. Social Media & Blogs
 SOCIAL_SOURCES = [
     "Twitter", "X.com", "LinkedIn", "Facebook", "Truth Social", "Reddit", 
-    "Substack", "Medium", "StockTwits", "Instagram"]
+    "Substack", "Medium", "StockTwits", "Instagram"
+]
 
 LOGO_URL = "https://cormark.com/Portals/_default/Skins/Cormark/Images/Cormark_4C_183x42px.png"
 
@@ -103,67 +107,72 @@ st.logo(LOGO_URL, link="https://cormark.com/")
 if 'news_data' not in st.session_state:
     st.session_state.news_data = []
 
-# --- 2. SIDEBAR: CATEGORY-BASED FILTERING ---
+# --- 2. SIDEBAR: FILTERS ---
 with st.sidebar:
     st.title("DivFin Settings")
     selected_group = st.selectbox("Watchlist Category", options=list(WATCHLIST_GROUPS.keys()))
     
     st.divider()
     st.header("Source Filters")
-    
-    # Toggle Categories
-    show_credible = st.checkbox("⭐ Show Credible Sources", value=True, help="Bloomberg, Reuters, Globe & Mail, etc.")
-    show_social = st.checkbox("📱 Show Social Media & Blogs", value=False, help="Twitter/X, LinkedIn, Substack, etc.")
-    show_other = st.checkbox("🌑 Show All Other Sources", value=False, help="Automatically filtered/unverified sources.")
+    show_credible = st.checkbox("⭐ Show Credible (Wires & Big Media)", value=True)
+    show_social = st.checkbox("📱 Show Social Media & Blogs", value=False)
+    show_other = st.checkbox("🌑 Show All Other Sources", value=False)
 
     st.divider()
     keyword_filter = st.text_input("🔍 Search Headlines", "").strip().lower()
 
 # --- 3. THE SCANNER ---
 def get_google_news(company_name, watchlist_names):
-    # 1. Prepare search terms
-    # We want "Alaris Equity Partners" -> "Alaris" for the validation check
-    core_name = company_name.split(',')[0].split(' Inc')[0].split(' LLC')[0].strip()
-    # If the name is long, take the first two words (e.g., "Heritage Restoration")
-    short_name = " ".join(core_name.split()[:2]) 
-
-    # Search query: We'll use the short name to get more results
-    query = quote(f'"{short_name}" when:7d')
+    # Determine strictness level
+    is_primary = any(ticker.lower() in company_name.lower() for ticker in PRIMARY_TICKERS)
+    
+    # Clean the name
+    clean_name = company_name.replace(", LLC", "").replace(" LLC", "").replace(", Inc.", "").replace(" Inc.", "")
+    
+    # 1. SEARCH STRATEGY
+    if is_primary:
+        # Broad search for parents
+        query = quote(f'{clean_name} when:7d')
+    else:
+        # Strict quote search for subsidiaries/CEOs
+        query = quote(f'"{clean_name}" when:7d')
+    
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
     
-    # 2. TECHNICAL FIX: Properly handle SSL for Streamlit/Linux servers
     try:
         ssl_context = ssl._create_unverified_context()
         with urllib.request.urlopen(url, context=ssl_context) as response:
             raw_data = response.read()
         feed = feedparser.parse(raw_data)
-    except Exception as e:
-        st.error(f"Error fetching feed for {company_name}: {e}")
+    except:
         return []
 
     results = []
-    
-    for entry in feed.entries[:15]: # Increased limit to 15 to account for filtering
+    for entry in feed.entries[:15]:
         headline = entry.title
         source_name = entry.source.get('title', 'Unknown')
         
-        # 3. SMARTER VALIDATION: 
-        # We check if the 'short_name' (e.g., Alaris) is in the headline.
-        # This prevents skipping "Alaris" news just because "Equity Partners" wasn't written.
-        if short_name.lower() not in headline.lower():
-            continue
+        # 2. VALIDATION STRATEGY
+        if is_primary:
+            # LOOSE: Check if the first word (e.g. Alaris) is in title
+            core_word = clean_name.split()[0]
+            if core_word.lower() not in headline.lower():
+                continue
+        else:
+            # STRICT: Full name must be in title
+            if clean_name.lower() not in headline.lower():
+                continue
 
-        # 4. CATEGORIZATION
+        # 3. CATEGORIZATION STRATEGY
         category = "Other"
         
-        # Check premium list
+        # Check Big Media / Wires
         is_premium = any(s.lower() in source_name.lower() for s in CREDIBLE_SOURCES)
         
-        # Check if the source name matches any part of our watchlist companies
-        is_corporate_site = any(short_name.lower() in source_name.lower() for c in watchlist_names)
+        # Check if the Source name matches any of our watchlist companies (Corporate Website)
+        is_corporate = any(name.lower() in source_name.lower() for name in watchlist_names)
         
-        # Extra check: If it's a major .com news source, it's likely credible
-        if is_premium or is_corporate_site:
+        if is_premium or is_corporate:
             category = "Credible"
         elif any(s.lower() in source_name.lower() for s in SOCIAL_SOURCES):
             category = "Social"
@@ -180,55 +189,47 @@ def get_google_news(company_name, watchlist_names):
             "Headline": headline,
             "Link": entry.link
         })
-        
     return results
-    
+
 # --- 4. MAIN UI & LOGIC ---
 st.title("DivFin News Screener")
 st.subheader(f"Current Watchlist: {selected_group}")
 
 if st.button(f"Search {selected_group} List", use_container_width=True):
     all_hits = []
-    # Use a set to avoid searching duplicate names (like "Alaris" and "Alaris Equity Partners")
-    # We filter out very short strings to avoid "noise"
-    search_list = sorted(list(set(WATCHLIST_GROUPS[selected_group])))
+    current_watchlist = WATCHLIST_GROUPS[selected_group]
     
     with st.spinner('Gathering intelligence...'):
-        for company in search_list:
-            hits = get_google_news(company, search_list)
-            all_hits.extend(hits)
-            
-    if not all_hits:
-        st.warning("No news found for this timeframe. Try a broader category.")
-    else:
-        st.session_state.news_data = all_hits
+        for company in current_watchlist:
+            all_hits.extend(get_google_news(company, current_watchlist))
     
+    if all_hits:
+        # Deduplicate and Save
+        df_hits = pd.DataFrame(all_hits).drop_duplicates(subset=['Headline'])
+        st.session_state.news_data = df_hits.to_dict('records')
+    else:
+        st.session_state.news_data = []
+
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data).sort_values(by="sort_key", ascending=False)
     
-    # --- APPLY CATEGORY FILTERS ---
-    allowed_categories = []
-    if show_credible: allowed_categories.append("Credible")
-    if show_social: allowed_categories.append("Social")
-    if show_other: allowed_categories.append("Other")
+    # Filter Categories
+    allowed = []
+    if show_credible: allowed.append("Credible")
+    if show_social: allowed.append("Social")
+    if show_other: allowed.append("Other")
     
-    df = df[df['Category'].isin(allowed_categories)]
+    df = df[df['Category'].isin(allowed)]
     
-    # Keyword filter
     if keyword_filter:
         df = df[df['Headline'].str.lower().str.contains(keyword_filter)]
 
-    st.success(f"Showing {len(df)} curated headlines.")
+    st.success(f"Curated {len(df)} headlines.")
     
-    # Color-coding the category for better UX
-    def color_category(val):
-        color = '#2ecc71' if val == 'Credible' else '#e67e22' if val == 'Social' else '#95a5a6'
-        return f'color: {color}; font-weight: bold'
-
     st.dataframe(
         df[["Date", "Company", "Source", "Category", "Headline", "Link"]], 
         column_config={
-            "Link": st.column_config.LinkColumn("View Article"),
+            "Link": st.column_config.LinkColumn("View"),
             "Category": st.column_config.TextColumn("Type")
         },
         use_container_width=True, 
