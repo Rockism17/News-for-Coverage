@@ -14,23 +14,20 @@ WATCHLIST_GROUPS = {
                "Professional Electric Contractors of Connecticut, Inc. (PEC)", "Sagamore Plumbing and Heating LLC", "SCR Mining & Tunnelling L.P.", "The Shipyard, LLC", "Unify Consulting, LLC", 
                "Vehicle Leasing Holdings, LLC (D&M Leasing)"],
     
-    "Bridgemarq": ["Bridgemarq Real Estate Services", "BRE.TO", "Royal LePage", "Proprio Direct", "Via Capitale", "Spencer Enright", "Phil Soper", "Johnston & Daniel"],
+    "Bridgemarq (BRE)": ["Bridgemarq Real Estate Services", "BRE.TO", "Royal LePage", "Proprio Direct", "Via Capitale", "Spencer Enright", "Phil Soper", "Johnston & Daniel"],
     
-    "Canaccord": ["Canaccord Genuity", "CF.TO", "Dan Daviau", "Canaccord Wealth Management", "Sawaya Partners", "Questrade partner", "Canaccord Genuity Group"],
+    "Canaccord (CF)": ["Canaccord Genuity", "CF.TO", "Dan Daviau", "Canaccord Wealth Management", "Sawaya Partners", "Questrade partner", "Canaccord Genuity Group"],
     
-    "Diversified Royalties": ["Diversified Royalty Corp", "DIV.TO", "Sean Morrison", "Mr. Lube", "Air Miles", "Sutton Group", "Nurse Next Door", "Oxford Learning", "BarBurrito", "Cheba Hut", "Mr. Mikes"],
+    "Diversified Royalties (DIV)": ["Diversified Royalty Corp", "DIV.TO", "Sean Morrison", "Mr. Lube", "Air Miles", "Sutton Group", "Nurse Next Door", "Oxford Learning", "BarBurrito", "Cheba Hut", "Mr. Mikes"],
     
-    "Dominion Lending": ["Dominion Lending Centres", "DLCG.TO", "Gary Mauris", "Mortgage Architects", "MCC Mortgage Centre", "Newton Connectivity", "Chris Kayat"],
+    "Dominion Lending (DLCG)": ["Dominion Lending Centres", "DLCG.TO", "Gary Mauris", "Mortgage Architects", "MCC Mortgage Centre", "Newton Connectivity", "Chris Kayat"],
     
-    "Exchange Income": [
-        # Corporate & Leadership
+    "Exchange Income (EIF)": [
         "Exchange Income Corp", "EIF.TO", "Mike Pyle", "Adam Terwin", "Jake Trainor",
-        # Aviation Segment (Air Operators & Aerospace)
         "Canadian North", "PAL Aerospace", "PAL Airlines", "Perimeter Aviation", 
         "Calm Air", "Bearskin Airlines", "Keewatin Air", "Regional One", 
         "Custom Helicopters", "Moncton Flight College", "Newfoundland Helicopters", 
         "Air Borealis", "Mach2", "BC Medevac",
-        # Manufacturing Segment
         "Northern Mat and Bridge", "Spartan Mat", "Spartan Composites", 
         "WesTower Communications", "Quest Window Systems", "BVGlazing Systems", 
         "Ben Machine Products", "Stainless Fabrication", "DryAir Manufacturing", 
@@ -38,66 +35,32 @@ WATCHLIST_GROUPS = {
         "Water Blast Manufacturing", "Duhamel Sawmill"
     ],
     
-    "Fairfax": ["Fairfax Financial Holdings", "FFH.TO", "Prem Watsa", "Odyssey Group", "Allied World", "Northbridge Financial", "Crum & Forster", "Brit Insurance"],
+    "Fairfax (FFH)": ["Fairfax Financial Holdings", "FFH.TO", "Prem Watsa", "Odyssey Group", "Allied World", "Northbridge Financial", "Crum & Forster", "Brit Insurance"],
+    "goeasy (GSY)": ["goeasy Ltd", "GSY.TO", "Jason Mullins", "easyfinancial", "easyhome", "LendCare"],
+    "Propel (PRL)": ["Propel Holdings", "PRL.TO", "Clive Kinross", "CreditFresh", "MoneyKey", "Fora Credit", "QuidMarket", "FreshLine"],
+    "RFA Financial (RFA)": ["RFA Financial Inc", "RFA.TO", "RFA Bank of Canada", "RFA Mortgage", "RFA REIT", "Holloway Lodging"],
+    "Trisura (TSU)": ["Trisura Group", "TSU.TO", "David Clare", "Trisura Guarantee Insurance", "Trisura Specialty", "Chris Sekine"],
+    "Versabank (VSB)": ["VersaBank", "VSB.TO", "David Taylor", "DRT Cyber", "Structured Receivable"],
+    "Westaim (WED)": ["Westaim Corporation", "WED.TO", "Cameron MacDonald", "Skyward Specialty", "Arena Investors", "Arena Wealth Management"],
     
-    "goeasy": ["goeasy Ltd", "GSY.TO", "Jason Mullins", "easyfinancial", "easyhome", "LendCare"],
-    
-    "Propel": ["Propel Holdings", "PRL.TO", "Clive Kinross", "CreditFresh", "MoneyKey", "Fora Credit", "QuidMarket", "FreshLine"],
-    
-    "RFA Financial": ["RFA Financial Inc", "RFA.TO", "RFA Bank of Canada", "RFA Mortgage", "RFA REIT", "Holloway Lodging"],
-
-    "Trisura": ["Trisura Group", "TSU.TO", "David Clare", "Trisura Guarantee Insurance", "Trisura Specialty", "Chris Sekine"],
-
-    "Versabank": ["VersaBank", "VSB.TO", "David Taylor", "DRT Cyber", "Structured Receivable"],
-    
-    "Westaim": ["Westaim Corporation", "WED.TO", "Cameron MacDonald", "Skyward Specialty", "Arena Investors", "Arena Wealth Management"],
-    
-   "All": ["Alaris", "Alaris Equity Partners", "3E, LLC", "Accscient, LLC", "Amur Financial Group Inc.", "Berg Demo Holdings, LLC", "Body Contour Centers, LLC (SonoBello)", "Carey Electric Contracting, LLC", 
-               "Cresa, LLC", "DNT Construction, LLC", "Edgewater Technical Associates, LLC", "Fleet Advantage, LLC", "Federal Management Partners, LLC (FMP)", "GWM Holdings, Inc. (GlobalWide Media)", 
-               "Heritage Restoration, LLC", "Kubik, LP", "LMS Reinforcing Steel Group", "McCoy Roofing Holdings LLC", "Ohana Growth Partners, LLC", "Optimus SBR", 
-               "Professional Electric Contractors of Connecticut, Inc. (PEC)", "Sagamore Plumbing and Heating LLC", "SCR Mining & Tunnelling L.P.", "The Shipyard, LLC", "Unify Consulting, LLC", 
-               "Vehicle Leasing Holdings, LLC (D&M Leasing)", "3E", "Accscient", "Amur", "Berg Demo", "SonoBello", "Carey Electric", "Cresa", "DNT", "Edgewater", "Fleet Advantage", "FMP", "GlobalWide", 
-               "Heritage", "Kubik", "LMS", "McCoy Roofing", "Ohana", "Optimus SBR", "PEC", "Sagamore", "SCR", "The Shipyard", "Unify", "D&M Leasing",
-           "Bridgemarq Real Estate Services", "BRE.TO", "Royal LePage", "Proprio Direct", "Via Capitale", "Spencer Enright", "Phil Soper", "Johnston & Daniel",
-           "Canaccord Genuity", "CF.TO", "Dan Daviau", "Canaccord Wealth Management", "Sawaya Partners", "Questrade partner", "Canaccord Genuity Group",
-           "Diversified Royalty Corp", "DIV.TO", "Sean Morrison", "Mr. Lube", "Air Miles", "Sutton Group", "Nurse Next Door", "Oxford Learning", "BarBurrito", "Cheba Hut", "Mr. Mikes",
-           "Dominion Lending Centres", "DLCG.TO", "Gary Mauris", "Mortgage Architects", "MCC Mortgage Centre", "Newton Connectivity", "Chris Kayat",
-           "Exchange Income Corp", "EIF.TO", "Mike Pyle", "Adam Terwin", "Jake Trainor",
-               "Canadian North", "PAL Aerospace", "PAL Airlines", "Perimeter Aviation", 
-                "Calm Air", "Bearskin Airlines", "Keewatin Air", "Regional One", 
-                "Custom Helicopters", "Moncton Flight College", "Newfoundland Helicopters", 
-                "Air Borealis", "Mach2", "BC Medevac",
-                "Northern Mat and Bridge", "Spartan Mat", "Spartan Composites", 
-                "WesTower Communications", "Quest Window Systems", "BVGlazing Systems", 
-                "Ben Machine Products", "Stainless Fabrication", "DryAir Manufacturing", 
-                "Hansen Industries", "Overlanders Manufacturing", "LV Control Mfg", 
-                "Water Blast Manufacturing", "Duhamel Sawmill",
-           "Fairfax Financial Holdings", "FFH.TO", "Prem Watsa", "Odyssey Group", "Allied World", "Northbridge Financial", "Crum & Forster", "Brit Insurance",
-           "goeasy Ltd", "GSY.TO", "Jason Mullins", "easyfinancial", "easyhome", "LendCare",
-           "Propel Holdings", "PRL.TO", "Clive Kinross", "CreditFresh", "MoneyKey", "Fora Credit", "QuidMarket", "FreshLine",
-           "RFA Financial Inc", "RFA.TO", "RFA Bank of Canada", "RFA Mortgage", "RFA REIT", "Holloway Lodging",
-           "Trisura Group", "TSU.TO", "David Clare", "Trisura Guarantee Insurance", "Trisura Specialty", "Chris Sekine",
-           "VersaBank", "VSB.TO", "David Taylor", "DRT Cyber", "Structured Receivable",
-           "Westaim Corporation", "WED.TO", "Cameron MacDonald", "Skyward Specialty", "Arena Investors", "Arena Wealth Management",
-           ],
+    "All": ["Alaris", "Bridgemarq", "Canaccord", "Diversified Royalty", "Dominion Lending", "Exchange Income", "Fairfax", "goeasy", "Propel", "RFA Financial", "Trisura", "VersaBank", "Westaim"]
 }
 
-# --- PRIMARY TICKER LIST (Loose Matching) ---
-# These are the main companies you cover. Matching for these is less strict.
-PRIMARY_TICKERS = ["Alaris", "Bridgemarq", "Canaccord", "Diversified", "Dominion", "Exchange Income", "Fairfax", "goeasy", "Propel", "RFA", "Trisura", "Versabank", "Westaim"]
-
-# --- SOURCE CATEGORIES ---
-CREDIBLE_SOURCES = [
-    "Globe and Mail", "Bloomberg", "Reuters", "Financial Post", "CNBC", 
-    "Yahoo", "WSJ", "Barron's", "Forbes", "Financial Times", "MarketWatch", 
-    "GlobeNewswire", "PR Newswire", "Business Wire", "Newswire", "Cision", 
-    "Accesswire", "Newsfile"
+PRIMARY_TICKERS = [
+    "Alaris", "Bridgemarq", "Canaccord", "Diversified", "Dominion", 
+    "Exchange Income", "Fairfax", "goeasy", "Propel", "RFA", 
+    "Trisura", "Versabank", "Westaim"
 ]
 
-SOCIAL_SOURCES = [
-    "Twitter", "X.com", "LinkedIn", "Facebook", "Truth Social", "Reddit", 
-    "Substack", "Medium", "StockTwits", "Instagram"
+# --- 1. BRAND-BASED CREDIBLE SOURCES ---
+# Using keywords rather than full phrases to ensure "Yahoo! Finance" etc are caught
+CREDIBLE_KEYWORDS = [
+    "globe", "bloomberg", "reuter", "financial post", "cnbc", "yahoo", 
+    "wsj", "wall street", "barron", "forbes", "marketwatch", "newswire", 
+    "cision", "accesswire", "newsfile", "press", "official"
 ]
+
+SOCIAL_SOURCES = ["twitter", "x.com", "linkedin", "facebook", "truth social", "reddit", "substack", "medium"]
 
 LOGO_URL = "https://cormark.com/Portals/_default/Skins/Cormark/Images/Cormark_4C_183x42px.png"
 
@@ -107,14 +70,14 @@ st.logo(LOGO_URL, link="https://cormark.com/")
 if 'news_data' not in st.session_state:
     st.session_state.news_data = []
 
-# --- 2. SIDEBAR: FILTERS ---
+# --- 2. SIDEBAR ---
 with st.sidebar:
     st.title("DivFin Settings")
     selected_group = st.selectbox("Watchlist Category", options=list(WATCHLIST_GROUPS.keys()))
     
     st.divider()
     st.header("Source Filters")
-    show_credible = st.checkbox("⭐ Show Credible (Wires & Big Media)", value=True)
+    show_credible = st.checkbox("⭐ Show Credible (Yahoo, Globe, Wires)", value=True)
     show_social = st.checkbox("📱 Show Social Media & Blogs", value=False)
     show_other = st.checkbox("🌑 Show All Other Sources", value=False)
 
@@ -123,18 +86,13 @@ with st.sidebar:
 
 # --- 3. THE SCANNER ---
 def get_google_news(company_name, watchlist_names):
-    # Determine strictness level
     is_primary = any(ticker.lower() in company_name.lower() for ticker in PRIMARY_TICKERS)
-    
-    # Clean the name
     clean_name = company_name.replace(", LLC", "").replace(" LLC", "").replace(", Inc.", "").replace(" Inc.", "")
     
-    # 1. SEARCH STRATEGY
+    # 1. SEARCH STRATEGY: Broad for parents, quoted for subsidiaries
     if is_primary:
-        # Broad search for parents
         query = quote(f'{clean_name} when:7d')
     else:
-        # Strict quote search for subsidiaries/CEOs
         query = quote(f'"{clean_name}" when:7d')
     
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
@@ -148,33 +106,32 @@ def get_google_news(company_name, watchlist_names):
         return []
 
     results = []
-    for entry in feed.entries[:15]:
+    # Increased limit to 40 to ensure we catch all sources
+    for entry in feed.entries[:40]:
         headline = entry.title
         source_name = entry.source.get('title', 'Unknown')
+        snippet = entry.get('summary', '').lower()
         
-        # 2. VALIDATION STRATEGY
-        if is_primary:
-            # LOOSE: Check if the first word (e.g. Alaris) is in title
-            core_word = clean_name.split()[0]
-            if core_word.lower() not in headline.lower():
-                continue
-        else:
-            # STRICT: Full name must be in title
-            if clean_name.lower() not in headline.lower():
+        # 2. VALIDATION (LOOSENED)
+        # If it's a primary company, we skip validation and trust Google's relevance.
+        # If it's a subsidiary, we check if the name is in the headline OR the snippet.
+        if not is_primary:
+            if clean_name.lower() not in headline.lower() and clean_name.lower() not in snippet:
                 continue
 
-        # 3. CATEGORIZATION STRATEGY
+        # 3. CATEGORIZATION
         category = "Other"
+        source_lower = source_name.lower()
         
-        # Check Big Media / Wires
-        is_premium = any(s.lower() in source_name.lower() for s in CREDIBLE_SOURCES)
+        # Check Brand Keywords (Yahoo, Globe, etc)
+        is_premium = any(kw in source_lower for kw in CREDIBLE_KEYWORDS)
         
-        # Check if the Source name matches any of our watchlist companies (Corporate Website)
-        is_corporate = any(name.lower() in source_name.lower() for name in watchlist_names)
+        # Check Corporate (Matches anything in our watchlist)
+        is_corporate = any(name.lower() in source_lower for name in watchlist_names)
         
         if is_premium or is_corporate:
             category = "Credible"
-        elif any(s.lower() in source_name.lower() for s in SOCIAL_SOURCES):
+        elif any(s in source_lower for s in SOCIAL_SOURCES):
             category = "Social"
             
         parsed_date = entry.get('published_parsed')
@@ -191,7 +148,7 @@ def get_google_news(company_name, watchlist_names):
         })
     return results
 
-# --- 4. MAIN UI & LOGIC ---
+# --- 4. MAIN UI ---
 st.title("DivFin News Screener")
 st.subheader(f"Current Watchlist: {selected_group}")
 
@@ -204,7 +161,6 @@ if st.button(f"Search {selected_group} List", use_container_width=True):
             all_hits.extend(get_google_news(company, current_watchlist))
     
     if all_hits:
-        # Deduplicate and Save
         df_hits = pd.DataFrame(all_hits).drop_duplicates(subset=['Headline'])
         st.session_state.news_data = df_hits.to_dict('records')
     else:
@@ -213,7 +169,6 @@ if st.button(f"Search {selected_group} List", use_container_width=True):
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data).sort_values(by="sort_key", ascending=False)
     
-    # Filter Categories
     allowed = []
     if show_credible: allowed.append("Credible")
     if show_social: allowed.append("Social")
