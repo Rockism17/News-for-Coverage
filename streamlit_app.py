@@ -120,22 +120,34 @@ with st.sidebar:
 
 # --- 3. THE SCANNER ---
 def get_google_news(company_name):
-    query = quote(f'{company_name} when:7d')
+    # 1. Use Double Quotes for exact matching in the search query
+    # Also, we strip 'LLC' or 'Inc' for the search to be more 'natural' 
+    # but keep the core name exact.
+    search_term = company_name.replace(", LLC", "").replace(" LLC", "").replace(", Inc.", "")
+    query = quote(f'"{search_term}" when:7d') 
+    
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
     ssl_context = ssl._create_unverified_context()
     feed = feedparser.parse(url)
     results = []
     
     for entry in feed.entries[:10]:
+        headline = entry.title
         source_name = entry.source.get('title', 'Unknown')
         
-        # CATEGORIZATION LOGIC
+        # 2. VALIDATION CHECK: 
+        # Only keep the result if the core name is actually IN the headline.
+        # This kills the 'random heritage' results.
+        if search_term.lower() not in headline.lower():
+            continue
+
+        # ... (rest of your categorization logic)
         category = "Other"
         if any(s.lower() in source_name.lower() for s in CREDIBLE_SOURCES):
             category = "Credible"
         elif any(s.lower() in source_name.lower() for s in SOCIAL_SOURCES):
             category = "Social"
-        
+            
         parsed_date = entry.get('published_parsed')
         sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
         
@@ -144,12 +156,12 @@ def get_google_news(company_name):
             "Date": sort_date.strftime('%b %d, %Y'),
             "Company": company_name,
             "Source": source_name,
-            "Category": category, # New field for filtering
-            "Headline": entry.title,
+            "Category": category,
+            "Headline": headline,
             "Link": entry.link
         })
     return results
-
+    
 # --- 4. MAIN UI & LOGIC ---
 st.title("DivFin News Screener")
 st.subheader(f"Current Watchlist: {selected_group}")
