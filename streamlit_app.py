@@ -119,10 +119,8 @@ with st.sidebar:
     keyword_filter = st.text_input("🔍 Search Headlines", "").strip().lower()
 
 # --- 3. THE SCANNER ---
-def get_google_news(company_name):
-    # 1. Use Double Quotes for exact matching in the search query
-    # Also, we strip 'LLC' or 'Inc' for the search to be more 'natural' 
-    # but keep the core name exact.
+def get_google_news(company_name, watchlist_names):
+    # Search with Quotes for exact matching
     search_term = company_name.replace(", LLC", "").replace(" LLC", "").replace(", Inc.", "")
     query = quote(f'"{search_term}" when:7d') 
     
@@ -135,15 +133,21 @@ def get_google_news(company_name):
         headline = entry.title
         source_name = entry.source.get('title', 'Unknown')
         
-        # 2. VALIDATION CHECK: 
-        # Only keep the result if the core name is actually IN the headline.
-        # This kills the 'random heritage' results.
+        # 1. VALIDATION: Skip if the company isn't actually in the headline
         if search_term.lower() not in headline.lower():
             continue
 
-        # ... (rest of your categorization logic)
+        # 2. CATEGORIZATION LOGIC
         category = "Other"
-        if any(s.lower() in source_name.lower() for s in CREDIBLE_SOURCES):
+        
+        # Check if it's a known big news site
+        is_premium = any(s.lower() in source_name.lower() for s in CREDIBLE_SOURCES)
+        
+        # Check if the source name matches ANY company name in your watchlist
+        # (e.g., if the source is "Exchange Income Corp" or "Alaris Equity Partners")
+        is_corporate_site = any(c.lower() in source_name.lower() for c in watchlist_names)
+        
+        if is_premium or is_corporate_site:
             category = "Credible"
         elif any(s.lower() in source_name.lower() for s in SOCIAL_SOURCES):
             category = "Social"
@@ -168,12 +172,15 @@ st.subheader(f"Current Watchlist: {selected_group}")
 
 if st.button(f"Search {selected_group} List", use_container_width=True):
     all_hits = []
+    # Get a master list of all names in the current watchlist to use as credible sources
+    current_watchlist_names = WATCHLIST_GROUPS[selected_group]
+    
     with st.spinner('Gathering intelligence...'):
-        # For the "All" category, we use the list defined in WATCHLIST_GROUPS["All"]
-        for company in WATCHLIST_GROUPS[selected_group]:
-            all_hits.extend(get_google_news(company))
+        for company in current_watchlist_names:
+            # Pass the watchlist names into the function
+            all_hits.extend(get_google_news(company, current_watchlist_names))
     st.session_state.news_data = all_hits
-
+    
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data).sort_values(by="sort_key", ascending=False)
     
