@@ -88,10 +88,10 @@ PRIMARY_TICKERS = ["Alaris", "Bridgemarq", "Canaccord", "Diversified", "Dominion
 
 # --- SOURCE CATEGORIES ---
 CREDIBLE_SOURCES = [
-    "The Globe and Mail", "Bloomberg", "Reuters", "Financial Post", "CNBC", 
-    "Yahoo Finance", "The Wall Street Journal", "WSJ", "Barron's", "Forbes", 
-    "Financial Times", "MarketWatch", "GlobeNewswire", "PR Newswire", "Business Wire",
-    "Canada Newswire", "Cision", "Accesswire", "Newsfile", "Newswire.ca"
+    "Globe and Mail", "Bloomberg", "Reuters", "Financial Post", "CNBC", 
+    "Yahoo", "WSJ", "Barron's", "Forbes", "Financial Times", "MarketWatch", 
+    "GlobeNewswire", "PR Newswire", "Business Wire", "Newswire", "Cision", 
+    "Accesswire", "Newsfile"
 ]
 
 SOCIAL_SOURCES = [
