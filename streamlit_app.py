@@ -4,6 +4,7 @@ import pandas as pd
 from urllib.parse import quote
 import ssl
 from datetime import datetime
+import urllib.request
 
 # --- 1. CONFIGURATION ---
 WATCHLIST_GROUPS = {
@@ -120,33 +121,48 @@ with st.sidebar:
 
 # --- 3. THE SCANNER ---
 def get_google_news(company_name, watchlist_names):
-    # Search with Quotes for exact matching
-    search_term = company_name.replace(", LLC", "").replace(" LLC", "").replace(", Inc.", "")
-    query = quote(f'"{search_term}" when:7d') 
-    
+    # 1. Prepare search terms
+    # We want "Alaris Equity Partners" -> "Alaris" for the validation check
+    core_name = company_name.split(',')[0].split(' Inc')[0].split(' LLC')[0].strip()
+    # If the name is long, take the first two words (e.g., "Heritage Restoration")
+    short_name = " ".join(core_name.split()[:2]) 
+
+    # Search query: We'll use the short name to get more results
+    query = quote(f'"{short_name}" when:7d')
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
-    ssl_context = ssl._create_unverified_context()
-    feed = feedparser.parse(url)
+    
+    # 2. TECHNICAL FIX: Properly handle SSL for Streamlit/Linux servers
+    try:
+        ssl_context = ssl._create_unverified_context()
+        with urllib.request.urlopen(url, context=ssl_context) as response:
+            raw_data = response.read()
+        feed = feedparser.parse(raw_data)
+    except Exception as e:
+        st.error(f"Error fetching feed for {company_name}: {e}")
+        return []
+
     results = []
     
-    for entry in feed.entries[:10]:
+    for entry in feed.entries[:15]: # Increased limit to 15 to account for filtering
         headline = entry.title
         source_name = entry.source.get('title', 'Unknown')
         
-        # 1. VALIDATION: Skip if the company isn't actually in the headline
-        if search_term.lower() not in headline.lower():
+        # 3. SMARTER VALIDATION: 
+        # We check if the 'short_name' (e.g., Alaris) is in the headline.
+        # This prevents skipping "Alaris" news just because "Equity Partners" wasn't written.
+        if short_name.lower() not in headline.lower():
             continue
 
-        # 2. CATEGORIZATION LOGIC
+        # 4. CATEGORIZATION
         category = "Other"
         
-        # Check if it's a known big news site
+        # Check premium list
         is_premium = any(s.lower() in source_name.lower() for s in CREDIBLE_SOURCES)
         
-        # Check if the source name matches ANY company name in your watchlist
-        # (e.g., if the source is "Exchange Income Corp" or "Alaris Equity Partners")
-        is_corporate_site = any(c.lower() in source_name.lower() for c in watchlist_names)
+        # Check if the source name matches any part of our watchlist companies
+        is_corporate_site = any(short_name.lower() in source_name.lower() for c in watchlist_names)
         
+        # Extra check: If it's a major .com news source, it's likely credible
         if is_premium or is_corporate_site:
             category = "Credible"
         elif any(s.lower() in source_name.lower() for s in SOCIAL_SOURCES):
@@ -164,6 +180,7 @@ def get_google_news(company_name, watchlist_names):
             "Headline": headline,
             "Link": entry.link
         })
+        
     return results
     
 # --- 4. MAIN UI & LOGIC ---
@@ -172,14 +189,19 @@ st.subheader(f"Current Watchlist: {selected_group}")
 
 if st.button(f"Search {selected_group} List", use_container_width=True):
     all_hits = []
-    # Get a master list of all names in the current watchlist to use as credible sources
-    current_watchlist_names = WATCHLIST_GROUPS[selected_group]
+    # Use a set to avoid searching duplicate names (like "Alaris" and "Alaris Equity Partners")
+    # We filter out very short strings to avoid "noise"
+    search_list = sorted(list(set(WATCHLIST_GROUPS[selected_group])))
     
     with st.spinner('Gathering intelligence...'):
-        for company in current_watchlist_names:
-            # Pass the watchlist names into the function
-            all_hits.extend(get_google_news(company, current_watchlist_names))
-    st.session_state.news_data = all_hits
+        for company in search_list:
+            hits = get_google_news(company, search_list)
+            all_hits.extend(hits)
+            
+    if not all_hits:
+        st.warning("No news found for this timeframe. Try a broader category.")
+    else:
+        st.session_state.news_data = all_hits
     
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data).sort_values(by="sort_key", ascending=False)
