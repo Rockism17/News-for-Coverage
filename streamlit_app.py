@@ -107,7 +107,7 @@ def get_google_news(company_name, watchlist_names):
 
     results = []
     # Increased limit to 40 to ensure we catch all sources
-    for entry in feed.entries[:40]:
+    for entry in feed.entries[:20]:
         headline = entry.title
         source_name = entry.source.get('title', 'Unknown')
         snippet = entry.get('summary', '').lower()
