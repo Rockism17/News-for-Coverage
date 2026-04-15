@@ -82,11 +82,18 @@ WATCHLIST_GROUPS = {
            ],
 }
 
-# The Default Blacklist (Hidden automatically)
-DEFAULT_BLACKLIST = ["MarketBeat", "Simply Wall St", "Zacks Investment Research", "Stock Traders Daily", "Defense World", "Best Stocks"]
+# --- SOURCE CATEGORIES ---
+# 1. Credible/White Label Sources
+CREDIBLE_SOURCES = [
+    "The Globe and Mail", "Bloomberg", "Reuters", "Financial Post", "CNBC", 
+    "Yahoo Finance", "The Wall Street Journal", "WSJ", "Barron's", "Forbes", 
+    "Financial Times", "MarketWatch", "GlobeNewswire", "PR Newswire", "Business Wire",
+    "Canada Newswire", "Cision"]
 
-# The Default Whitelist (Premium sources you might want to isolate)
-PREMIUM_SOURCES = ["The Globe and Mail", "Bloomberg", "Reuters", "Financial Post", "CNBC", "Yahoo Finance"]
+# 2. Social Media & Blogs
+SOCIAL_SOURCES = [
+    "Twitter", "X.com", "LinkedIn", "Facebook", "Truth Social", "Reddit", 
+    "Substack", "Medium", "StockTwits", "Instagram"]
 
 LOGO_URL = "https://cormark.com/Portals/_default/Skins/Cormark/Images/Cormark_4C_183x42px.png"
 
@@ -96,33 +103,18 @@ st.logo(LOGO_URL, link="https://cormark.com/")
 if 'news_data' not in st.session_state:
     st.session_state.news_data = []
 
-# --- 2. SIDEBAR: THE DUAL-FILTER SYSTEM ---
+# --- 2. SIDEBAR: CATEGORY-BASED FILTERING ---
 with st.sidebar:
     st.title("DivFin Settings")
     selected_group = st.selectbox("Watchlist Category", options=list(WATCHLIST_GROUPS.keys()))
     
     st.divider()
-    st.header("Source Controls")
+    st.header("Source Filters")
     
-    # Extract unique sources from data for the dropdowns
-    available_sources = []
-    if st.session_state.news_data:
-        available_sources = sorted(list(set([item['Source'] for item in st.session_state.news_data])))
-    
-    # 1. WHITELIST: Only show these if selected
-    whitelist = st.multiselect(
-        "⭐ Whitelist (Show ONLY these):",
-        options=available_sources,
-        help="If you select sources here, all others will be hidden."
-    )
-    
-    # 2. BLACKLIST: Hide these automatically
-    present_blacklist = [s for s in DEFAULT_BLACKLIST if s in available_sources]
-    blacklist = st.multiselect(
-        "🚫 Blacklist (Always Hide):",
-        options=available_sources,
-        default=present_blacklist
-    )
+    # Toggle Categories
+    show_credible = st.checkbox("⭐ Show Credible Sources", value=True, help="Bloomberg, Reuters, Globe & Mail, etc.")
+    show_social = st.checkbox("📱 Show Social Media & Blogs", value=False, help="Twitter/X, LinkedIn, Substack, etc.")
+    show_other = st.checkbox("🌑 Show All Other Sources", value=False, help="Automatically filtered/unverified sources.")
 
     st.divider()
     keyword_filter = st.text_input("🔍 Search Headlines", "").strip().lower()
@@ -134,14 +126,26 @@ def get_google_news(company_name):
     ssl_context = ssl._create_unverified_context()
     feed = feedparser.parse(url)
     results = []
+    
     for entry in feed.entries[:10]:
+        source_name = entry.source.get('title', 'Unknown')
+        
+        # CATEGORIZATION LOGIC
+        category = "Other"
+        if any(s.lower() in source_name.lower() for s in CREDIBLE_SOURCES):
+            category = "Credible"
+        elif any(s.lower() in source_name.lower() for s in SOCIAL_SOURCES):
+            category = "Social"
+        
         parsed_date = entry.get('published_parsed')
         sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
+        
         results.append({
             "sort_key": sort_date,
             "Date": sort_date.strftime('%b %d, %Y'),
             "Company": company_name,
-            "Source": entry.source.get('title', 'Google News'),
+            "Source": source_name,
+            "Category": category, # New field for filtering
             "Headline": entry.title,
             "Link": entry.link
         })
@@ -151,9 +155,10 @@ def get_google_news(company_name):
 st.title("DivFin News Screener")
 st.subheader(f"Current Watchlist: {selected_group}")
 
-if st.button(f" Search {selected_group} List", use_container_width=True):
+if st.button(f"Search {selected_group} List", use_container_width=True):
     all_hits = []
     with st.spinner('Gathering intelligence...'):
+        # For the "All" category, we use the list defined in WATCHLIST_GROUPS["All"]
         for company in WATCHLIST_GROUPS[selected_group]:
             all_hits.extend(get_google_news(company))
     st.session_state.news_data = all_hits
@@ -161,22 +166,31 @@ if st.button(f" Search {selected_group} List", use_container_width=True):
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data).sort_values(by="sort_key", ascending=False)
     
-    # --- LOGIC: Apply Whitelist First ---
-    if whitelist:
-        df = df[df['Source'].isin(whitelist)]
+    # --- APPLY CATEGORY FILTERS ---
+    allowed_categories = []
+    if show_credible: allowed_categories.append("Credible")
+    if show_social: allowed_categories.append("Social")
+    if show_other: allowed_categories.append("Other")
     
-    # --- LOGIC: Apply Blacklist Second ---
-    if blacklist:
-        df = df[~df['Source'].isin(blacklist)]
+    df = df[df['Category'].isin(allowed_categories)]
     
     # Keyword filter
     if keyword_filter:
         df = df[df['Headline'].str.lower().str.contains(keyword_filter)]
 
-    st.success(f"Curated {len(df)} headlines for your review.")
+    st.success(f"Showing {len(df)} curated headlines.")
+    
+    # Color-coding the category for better UX
+    def color_category(val):
+        color = '#2ecc71' if val == 'Credible' else '#e67e22' if val == 'Social' else '#95a5a6'
+        return f'color: {color}; font-weight: bold'
+
     st.dataframe(
-        df[["Date", "Company", "Source", "Headline", "Link"]], 
-        column_config={"Link": st.column_config.LinkColumn("View Article")},
+        df[["Date", "Company", "Source", "Category", "Headline", "Link"]], 
+        column_config={
+            "Link": st.column_config.LinkColumn("View Article"),
+            "Category": st.column_config.TextColumn("Type")
+        },
         use_container_width=True, 
         hide_index=True
     )
