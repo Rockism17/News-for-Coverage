@@ -46,14 +46,6 @@ WATCHLIST_GROUPS = {
     "All": ["Alaris", "Bridgemarq", "Canaccord", "Diversified Royalty", "Dominion Lending", "Exchange Income", "Fairfax", "goeasy", "Propel", "RFA Financial", "Trisura", "VersaBank", "Westaim"]
 }
 
-# --- PRIMARY TICKER LIST (Loose Matching) ---
-# These are the main companies you cover. Matching for these is less strict.
-PRIMARY_TICKERS = [
-    "Alaris", "Bridgemarq", "Canaccord", "Diversified", "Dominion", 
-    "Exchange Income", "Fairfax", "goeasy", "Propel", "RFA", 
-    "Trisura", "Versabank", "Westaim"
-]
-
 # The Default Blacklist (Hidden automatically)
 DEFAULT_BLACKLIST = ["MarketBeat", "Simply Wall St", "Zacks Investment Research", "Stock Traders Daily", "Defense World", "Best Stocks"]
 
