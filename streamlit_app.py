@@ -14,15 +14,15 @@ WATCHLIST_GROUPS = {
                "Professional Electric Contractors of Connecticut, Inc. (PEC)", "Sagamore Plumbing and Heating LLC", "SCR Mining & Tunnelling L.P.", "The Shipyard, LLC", "Unify Consulting, LLC", 
                "Vehicle Leasing Holdings, LLC (D&M Leasing)"],
     
-    "Bridgemarq": ["Bridgemarq Real Estate Services", "BRE.TO", "Royal LePage", "Proprio Direct", "Via Capitale", "Spencer Enright", "Phil Soper", "Johnston & Daniel"],
+    "Bridgemarq (BRE)": ["Bridgemarq Real Estate Services", "BRE.TO", "Royal LePage", "Proprio Direct", "Via Capitale", "Spencer Enright", "Phil Soper", "Johnston & Daniel"],
     
-    "Canaccord": ["Canaccord Genuity", "CF.TO", "Dan Daviau", "Canaccord Wealth Management", "Sawaya Partners", "Questrade partner", "Canaccord Genuity Group"],
+    "Canaccord (CF)": ["Canaccord Genuity", "CF.TO", "Dan Daviau", "Canaccord Wealth Management", "Sawaya Partners", "Questrade partner", "Canaccord Genuity Group"],
     
-    "Diversified Royalties": ["Diversified Royalty Corp", "DIV.TO", "Sean Morrison", "Mr. Lube", "Air Miles", "Sutton Group", "Nurse Next Door", "Oxford Learning", "BarBurrito", "Cheba Hut", "Mr. Mikes"],
+    "Diversified Royalties (DIV)": ["Diversified Royalty Corp", "DIV.TO", "Sean Morrison", "Mr. Lube", "Air Miles", "Sutton Group", "Nurse Next Door", "Oxford Learning", "BarBurrito", "Cheba Hut", "Mr. Mikes"],
     
-    "Dominion Lending": ["Dominion Lending Centres", "DLCG.TO", "Gary Mauris", "Mortgage Architects", "MCC Mortgage Centre", "Newton Connectivity", "Chris Kayat"],
+    "Dominion Lending (DLCG)": ["Dominion Lending Centres", "DLCG.TO", "Gary Mauris", "Mortgage Architects", "MCC Mortgage Centre", "Newton Connectivity", "Chris Kayat"],
     
-    "Exchange Income": [
+    "Exchange Income (EIF)": [
         "Exchange Income Corp", "EIF.TO", "Mike Pyle", "Adam Terwin", "Jake Trainor",
         "Canadian North", "PAL Aerospace", "PAL Airlines", "Perimeter Aviation", 
         "Calm Air", "Bearskin Airlines", "Keewatin Air", "Regional One", 
@@ -35,13 +35,13 @@ WATCHLIST_GROUPS = {
         "Water Blast Manufacturing", "Duhamel Sawmill"
     ],
     
-    "Fairfax": ["Fairfax Financial Holdings", "FFH.TO", "Prem Watsa", "Odyssey Group", "Allied World", "Northbridge Financial", "Crum & Forster", "Brit Insurance"],
-    "goeasy": ["goeasy Ltd", "GSY.TO", "Jason Mullins", "easyfinancial", "easyhome", "LendCare"],
-    "Propel": ["Propel Holdings", "PRL.TO", "Clive Kinross", "CreditFresh", "MoneyKey", "Fora Credit", "QuidMarket", "FreshLine"],
-    "RFA Financial": ["RFA Financial Inc", "RFA.TO", "RFA Bank of Canada", "RFA Mortgage", "RFA REIT", "Holloway Lodging"],
-    "Trisura": ["Trisura Group", "TSU.TO", "David Clare", "Trisura Guarantee Insurance", "Trisura Specialty", "Chris Sekine"],
-    "Versabank": ["VersaBank", "VSB.TO", "David Taylor", "DRT Cyber", "Structured Receivable"],
-    "Westaim": ["Westaim Corporation", "WED.TO", "Cameron MacDonald", "Skyward Specialty", "Arena Investors", "Arena Wealth Management"],
+    "Fairfax (FFH)": ["Fairfax Financial Holdings", "FFH.TO", "Prem Watsa", "Odyssey Group", "Allied World", "Northbridge Financial", "Crum & Forster", "Brit Insurance"],
+    "goeasy (GSY)": ["goeasy Ltd", "GSY.TO", "Jason Mullins", "easyfinancial", "easyhome", "LendCare"],
+    "Propel (PRL)": ["Propel Holdings", "PRL.TO", "Clive Kinross", "CreditFresh", "MoneyKey", "Fora Credit", "QuidMarket", "FreshLine"],
+    "RFA Financial (RFA)": ["RFA Financial Inc", "RFA.TO", "RFA Bank of Canada", "RFA Mortgage", "RFA REIT", "Holloway Lodging"],
+    "Trisura (TSU)": ["Trisura Group", "TSU.TO", "David Clare", "Trisura Guarantee Insurance", "Trisura Specialty", "Chris Sekine"],
+    "Versabank (VSB)": ["VersaBank", "VSB.TO", "David Taylor", "DRT Cyber", "Structured Receivable"],
+    "Westaim (WED)": ["Westaim Corporation", "WED.TO", "Cameron MacDonald", "Skyward Specialty", "Arena Investors", "Arena Wealth Management"],
     
     "All": ["Alaris", "Bridgemarq", "Canaccord", "Diversified Royalty", "Dominion Lending", "Exchange Income", "Fairfax", "goeasy", "Propel", "RFA Financial", "Trisura", "VersaBank", "Westaim"]
 }
@@ -66,17 +66,12 @@ def get_google_news(company_name):
         parsed_date = entry.get('published_parsed')
         sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
         
-        # Clean the " - Source" from the end of headlines
-        clean_headline = entry.title
-        if " - " in clean_headline:
-            clean_headline = " - ".join(clean_headline.split(" - ")[:-1])
-
         results.append({
             "sort_key": sort_date,
             "Date": sort_date.strftime('%b %d, %Y'),
             "Company": company_name,
-            "Source": entry.source.get('title', 'Google News'),
-            "Headline": clean_headline,
+            "Source": entry.source.get('title', 'Google News'), # Extracts publisher name
+            "Headline": entry.title, # Raw headline from feed
             "Link": entry.link
         })
     return results
