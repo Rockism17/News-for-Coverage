@@ -52,8 +52,6 @@ PRIMARY_TICKERS = [
     "Trisura", "Versabank", "Westaim"
 ]
 
-# --- 1. BRAND-BASED CREDIBLE SOURCES ---
-# Using keywords rather than full phrases to ensure "Yahoo! Finance" etc are caught
 CREDIBLE_KEYWORDS = [
     "globe", "bloomberg", "reuter", "financial post", "cnbc", "yahoo", 
     "wsj", "wall street", "barron", "forbes", "marketwatch", "newswire", 
@@ -86,10 +84,13 @@ with st.sidebar:
 
 # --- 3. THE SCANNER ---
 def get_google_news(company_name, watchlist_names):
+    # Determine if it's a primary ticker
     is_primary = any(ticker.lower() in company_name.lower() for ticker in PRIMARY_TICKERS)
+    
+    # Clean version for comparison
     clean_name = company_name.replace(", LLC", "").replace(" LLC", "").replace(", Inc.", "").replace(" Inc.", "")
     
-    # 1. SEARCH STRATEGY: Broad for parents, quoted for subsidiaries
+    # SEARCH QUERY
     if is_primary:
         query = quote(f'{clean_name} when:7d')
     else:
@@ -106,27 +107,27 @@ def get_google_news(company_name, watchlist_names):
         return []
 
     results = []
-    # Increased limit to 40 to ensure we catch all sources
     for entry in feed.entries[:20]:
         headline = entry.title
         source_name = entry.source.get('title', 'Unknown')
-        snippet = entry.get('summary', '').lower()
         
-        # 2. VALIDATION (LOOSENED)
-        # If it's a primary company, we skip validation and trust Google's relevance.
-        # If it's a subsidiary, we check if the name is in the headline OR the snippet.
-        if not is_primary:
-            if clean_name.lower() not in headline.lower() and clean_name.lower() not in snippet:
+        # --- REINSTATED STRICT VALIDATION ---
+        # Rule: Name MUST be in the headline. 
+        if is_primary:
+            # Look for the core brand name (e.g., Alaris) in the title
+            core_brand = clean_name.split()[0]
+            if core_brand.lower() not in headline.lower():
+                continue
+        else:
+            # Look for the exact phrase (e.g., 3E, LLC) in the title
+            if clean_name.lower() not in headline.lower():
                 continue
 
-        # 3. CATEGORIZATION
+        # CATEGORIZATION
         category = "Other"
         source_lower = source_name.lower()
         
-        # Check Brand Keywords (Yahoo, Globe, etc)
         is_premium = any(kw in source_lower for kw in CREDIBLE_KEYWORDS)
-        
-        # Check Corporate (Matches anything in our watchlist)
         is_corporate = any(name.lower() in source_lower for name in watchlist_names)
         
         if is_premium or is_corporate:
@@ -149,14 +150,11 @@ def get_google_news(company_name, watchlist_names):
     return results
 
 # --- 4. MAIN UI ---
-st.title("DivFin News Screener")
-st.subheader(f"Current Watchlist: {selected_group}")
-
 if st.button(f"Search {selected_group} List", use_container_width=True):
     all_hits = []
     current_watchlist = WATCHLIST_GROUPS[selected_group]
     
-    with st.spinner('Gathering intelligence...'):
+    with st.spinner('Refining intelligence feed...'):
         for company in current_watchlist:
             all_hits.extend(get_google_news(company, current_watchlist))
     
