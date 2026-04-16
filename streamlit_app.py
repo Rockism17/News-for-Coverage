@@ -80,21 +80,21 @@ def get_google_news(company_name):
         })
     return results
 
-# --- 3. UI LAYOUT & SIDEBAR ---
+# --- 3. SIDEBAR ---
 if 'news_data' not in st.session_state:
     st.session_state.news_data = []
 
 with st.sidebar:
     st.image(LOGO_URL)
-    st.title("DivFin Settings")
-    selected_group = st.selectbox("Watchlist Category", options=list(WATCHLIST_GROUPS.keys()))
+    st.title("Screener Settings")
+    
+    selected_view = st.selectbox("Select Watchlist", options=dropdown_options)
     
     st.divider()
     
+    # Logic to filter sources
     available_sources = sorted(list(set([item['Source'] for item in st.session_state.news_data]))) if st.session_state.news_data else []
-    
     whitelist = st.multiselect("⭐ Whitelist (Show ONLY):", options=available_sources)
-    
     present_blacklist = [s for s in DEFAULT_BLACKLIST if s in available_sources]
     blacklist = st.multiselect("🚫 Blacklist (Always Hide):", options=available_sources, default=present_blacklist)
 
@@ -104,42 +104,49 @@ with st.sidebar:
 # --- 4. MAIN LOGIC ---
 st.title("DivFin News Screener")
 
-if st.button(f"Search {selected_group} List", use_container_width=True):
-    all_hits = []
-    
-    if selected_group == "All":
-        items_to_search = [item for group_name, group_list in WATCHLIST_GROUPS.items() if group_name != "All" for item in group_list]
-    else:
-        items_to_search = WATCHLIST_GROUPS[selected_group]
+# Determine which items to search based on selection
+items_to_search = []
+if selected_view == "Core Coverage (All Parents)":
+    items_to_search = [item for sublist in CORE_TICKERS.values() for item in sublist]
+elif selected_view == "Full Universe (Everything)":
+    items_to_search = ([item for sublist in CORE_TICKERS.values() for item in sublist] + 
+                       [item for sublist in SUBS_MAP.values() for item in sublist])
+elif selected_view in CORE_TICKERS:
+    items_to_search = CORE_TICKERS[selected_view]
+elif selected_view.replace(" Subs", "") in SUBS_MAP:
+    items_to_search = SUBS_MAP[selected_view.replace(" Subs", "")]
 
-    with st.spinner('Gathering intelligence...'):
-        with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
-            future_to_company = {executor.submit(get_google_news, comp): comp for comp in items_to_search}
-            for future in concurrent.futures.as_completed(future_to_company):
-                all_hits.extend(future.result())
-                
-    st.session_state.news_data = all_hits
+# Filter out visual headers from the logic
+is_valid_selection = not selected_view.startswith("---")
 
+if is_valid_selection:
+    if st.button(f"Search {selected_view}", use_container_width=True):
+        all_hits = []
+        with st.spinner(f'Searching {len(items_to_search)} terms...'):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
+                future_to_company = {executor.submit(get_google_news, comp): comp for comp in items_to_search}
+                for future in concurrent.futures.as_completed(future_to_company):
+                    all_hits.extend(future.result())
+        st.session_state.news_data = all_hits
+
+# --- 5. DISPLAY ---
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data)
-    
-    df = df.drop_duplicates(subset=['Link'])
-    df = df.sort_values(by="sort_key", ascending=False)
+    df = df.drop_duplicates(subset=['Link']).sort_values(by="sort_key", ascending=False)
     
     if whitelist:
         df = df[df['Source'].isin(whitelist)]
     if blacklist:
         df = df[~df['Source'].isin(blacklist)]
-    
     if keyword_filter:
         df = df[df['Headline'].str.lower().str.contains(keyword_filter)]
 
-    st.success(f"Curated {len(df)} headlines for your review.")
+    st.success(f"Displaying {len(df)} headlines for {selected_view}.")
     st.dataframe(
         df[["Date", "Company", "Source", "Headline", "Link"]], 
-        column_config={
-            "Link": st.column_config.LinkColumn("View", display_text="Open")
-        },
+        column_config={"Link": st.column_config.LinkColumn("View", display_text="Open")},
         use_container_width=True, 
         hide_index=True
     )
+else:
+    st.info("Select a group from the sidebar and click Search.")
