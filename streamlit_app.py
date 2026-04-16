@@ -37,36 +37,38 @@ CORE_TICKERS = {
     "Westaim": ["Westaim", "WED.TO"]
 }
 
-# --- 2. SOURCE CLASSIFICATION (Updated with user-requested junk sources) ---
+# --- 2. SOURCE CLASSIFICATION ---
 CREDIBLE_KEYWORDS = [
     "Bloomberg", "Reuters", "Globe and Mail", "Financial Post", "CNBC", "Yahoo Finance", 
     "The Star", "BNN", "Wall Street Journal", "WSJ", "Barron's", "Financial Times", 
     "Associated Press", "AP", "Canadian Press", "GlobeNewswire", "CNW Group", 
-    "PR Newswire", "Business Wire", "BusinessWire", "Accesswire", "Newsfile", "Marketwired",
-    "Morningstar", "Barchart", "Seeking Alpha", "MarketWatch", "Newswire", "TMX"
+    "PR Newswire", "Business Wire", "BusinessWire", "Accesswire", "Newsfile",
+    "Morningstar", "Seeking Alpha", "MarketWatch", "Newswire", "TMX"
 ]
 
-NON_CREDIBLE_SOURCES = ["magaproject", "coinmarketcap", "iowa capital dispatch", "crypto", "bitcoin"]
+# Updated with user-requested low-quality sources
+NON_CREDIBLE_SOURCES = ["magaproject", "coinmarketcap", "iowa capital dispatch", "crypto", "bitcoin", "blockchain", "investing.com"]
 
 def classify_source(source_name):
     if not source_name: return "Other"
     source_lower = str(source_name).lower()
     
-    # Check for explicitly blacklisted sources first
+    # Check for junk sources
     if any(junk in source_lower for junk in NON_CREDIBLE_SOURCES):
         return "Other"
         
     if any(k.lower() in source_lower for k in CREDIBLE_KEYWORDS):
         return "Credible"
     
-    # Social Media Category
+    # Social Media
     if any(social in source_lower for social in ["twitter", "x.com", "reddit", "stocktwits", "facebook"]):
         return "Social Media"
         
     return "Other"
 
-# --- 3. THE SCANNER WITH STRICT HEADLINE CHECK ---
-def get_google_news(search_term, parent_name, validation_list):
+# --- 3. THE SCANNER WITH UNIFIED VALIDATION ---
+def get_google_news(search_term, display_name, validation_list):
+    # REMOVED strict exact matching for subsidiaries (less strict query)
     query = quote(f'{search_term} when:14d')
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
     
@@ -76,13 +78,13 @@ def get_google_news(search_term, parent_name, validation_list):
     feed = feedparser.parse(url)
     results = []
     
-    # validation_list contains all strings that MUST be in the headline (e.g. ["Exchange Income", "EIF"])
     for entry in feed.entries[:30]:
         headline = entry.title
         headline_lower = headline.lower()
         
-        # --- STRICT HEADLINE VALIDATION ---
-        # The article is only kept if the company name or ticker appears in the title
+        # --- UNIFIED HEADLINE VALIDATION ---
+        # Checks if the entity name is in the headline. 
+        # This applies the same quality control to subsidiaries as the core coverage.
         if not any(val.lower() in headline_lower for val in validation_list):
             continue
 
@@ -98,7 +100,7 @@ def get_google_news(search_term, parent_name, validation_list):
         results.append({
             "sort_key": sort_date,
             "Date": sort_date.strftime('%b %d, %Y'),
-            "Company": parent_name,
+            "Company": display_name,
             "Source": source,
             "Category": classify_source(source),
             "Headline": headline, 
@@ -106,7 +108,7 @@ def get_google_news(search_term, parent_name, validation_list):
         })
     return results
 
-# --- 4. UI ---
+# --- 4. STREAMLIT UI ---
 st.set_page_config(page_title="DivFin News Screener", page_icon="📈", layout="wide")
 
 if 'news_data' not in st.session_state:
@@ -134,30 +136,36 @@ with st.sidebar:
 
 st.title("DivFin News Screener")
 
-# Building the task list with (search_term, parent_display_name, validation_list)
+# Building the unified task list (search_term, display_name, validation_list)
 search_tasks = []
 if selected_view == "Core Coverage (All Parents)":
     for parent, terms in CORE_TICKERS.items():
         for t in terms: search_tasks.append((t, parent, CORE_TICKERS[parent]))
+
 elif selected_view == "Full Universe (Everything)":
+    # Core items
     for parent, terms in CORE_TICKERS.items():
         for t in terms: search_tasks.append((t, parent, CORE_TICKERS[parent]))
+    # Subsidiary items
     for parent, subs in SUBS_MAP.items():
         for s in subs: search_tasks.append((s, s, [s]))
+
 elif selected_view in CORE_TICKERS:
     for t in CORE_TICKERS[selected_view]: 
         search_tasks.append((t, selected_view, CORE_TICKERS[selected_view]))
+
 elif selected_view.replace(" Subs", "") in SUBS_MAP:
     p_name = selected_view.replace(" Subs", "")
     for s in SUBS_MAP[p_name]: 
+        # Subsidiaries now use their own name for headline validation
         search_tasks.append((s, s, [s]))
 
 if not selected_view.startswith("---"):
     if st.button(f"Search {selected_view}", use_container_width=True):
         all_hits = []
-        with st.spinner(f'Filtering for precise headline matches...'):
+        with st.spinner(f'Applying unified filters to {selected_view}...'):
             with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-                # Passing (search_term, display_name, validation_list)
+                # All tasks now use the unified get_google_news logic
                 future_to_company = {executor.submit(get_google_news, task[0], task[1], task[2]): task[0] for task in search_tasks}
                 for future in concurrent.futures.as_completed(future_to_company):
                     all_hits.extend(future.result())
@@ -178,7 +186,7 @@ if st.session_state.news_data:
     if keyword_filter:
         df = df[df['Headline'].str.lower().str.contains(keyword_filter)]
 
-    st.success(f"Displaying {len(df)} headlines with exact name-in-title validation.")
+    st.success(f"Displaying {len(df)} headlines with standardized name-in-title validation.")
     st.dataframe(
         df[["Date", "Company", "Category", "Source", "Headline", "Link"]], 
         column_config={"Link": st.column_config.LinkColumn("View", display_text="Open")},
