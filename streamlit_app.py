@@ -45,23 +45,29 @@ CORE_TICKERS = {
     "Westaim": ["Westaim Corporation"]
 }
 
-# Build the selection options for the dropdown
-dropdown_options = ["--- MASTER VIEWS ---", "Core Coverage (All Parents)", "Full Universe (Everything)"]
-dropdown_options += ["--- INDIVIDUAL PARENTS ---"] + sorted(list(CORE_TICKERS.keys()))
-dropdown_options += ["--- SUBSIDIARY GROUPS ---"] + sorted([f"{k} Subs" for k in SUBS_MAP.keys()])
+# --- 2. SOURCE CLASSIFICATION LOGIC ---
+# Credible includes Major News, Financial Sites, and Newswires
+CREDIBLE_KEYWORDS = [
+    "Bloomberg", "Reuters", "Globe and Mail", "Financial Post", "CNBC", "Yahoo Finance", 
+    "The Star", "BNN", "Wall Street Journal", "WSJ", "Barron's", "Financial Times", 
+    "Associated Press", "AP", "Canadian Press", "GlobeNewswire", "CNW Group", 
+    "PR Newswire", "Business Wire", "Accesswire", "Newsfile", "Marketwired"
+]
 
-DEFAULT_BLACKLIST = ["MarketBeat", "Simply Wall St", "Zacks Investment Research", "Stock Traders Daily", "Defense World", "Best Stocks"]
+SOCIAL_KEYWORDS = ["Twitter", "X.com", "Reddit", "Stocktwits", "Facebook", "LinkedIn", "YouTube"]
 
-LOGO_URL = "https://cormark.com/Portals/_default/Skins/Cormark/Images/Cormark_4C_183x42px.png"
+def classify_source(source_name):
+    source_lower = source_name.lower()
+    if any(k.lower() in source_lower for k in CREDIBLE_KEYWORDS):
+        return "Credible"
+    if any(k.lower() in source_lower for k in SOCIAL_KEYWORDS):
+        return "Social Media"
+    return "Other"
 
-st.set_page_config(page_title="DivFin News Screener", page_icon="📈", layout="wide")
-
-# --- 2. THE SCANNER ---
+# --- 3. THE SCANNER ---
 def get_google_news(company_name, use_exact=False):
-    # Logic: Wrap in quotes ONLY if it's a subsidiary to reduce noise
     search_term = f'"{company_name}"' if use_exact else company_name
     query = quote(f'{search_term} when:7d')
-    
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
     
     if hasattr(ssl, '_create_unverified_context'):
@@ -73,83 +79,98 @@ def get_google_news(company_name, use_exact=False):
         parsed_date = entry.get('published_parsed')
         sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
         
+        source = entry.source.get('title', 'Google News')
+        
         results.append({
             "sort_key": sort_date,
             "Date": sort_date.strftime('%b %d, %Y'),
             "Company": company_name,
-            "Source": entry.source.get('title', 'Google News'),
+            "Source": source,
+            "Category": classify_source(source), # Categorization logic applied here
             "Headline": entry.title, 
             "Link": entry.link
         })
     return results
 
-# --- 3. SIDEBAR ---
+# --- 4. STREAMLIT UI ---
+st.set_page_config(page_title="Purdchuk News Screener", page_icon="📈", layout="wide")
+
 if 'news_data' not in st.session_state:
     st.session_state.news_data = []
 
 with st.sidebar:
+    LOGO_URL = "https://cormark.com/Portals/_default/Skins/Cormark/Images/Cormark_4C_183x42px.png"
     st.image(LOGO_URL)
     st.title("Screener Settings")
+    
+    dropdown_options = ["--- MASTER VIEWS ---", "Core Coverage (All Parents)", "Full Universe (Everything)"]
+    dropdown_options += ["--- INDIVIDUAL PARENTS ---"] + sorted(list(CORE_TICKERS.keys()))
+    dropdown_options += ["--- SUBSIDIARY GROUPS ---"] + sorted([f"{k} Subs" for k in SUBS_MAP.keys()])
     
     selected_view = st.selectbox("Select Watchlist", options=dropdown_options)
     
     st.divider()
     
-    # Logic to filter sources
-    available_sources = sorted(list(set([item['Source'] for item in st.session_state.news_data]))) if st.session_state.news_data else []
-    whitelist = st.multiselect("⭐ Whitelist (Show ONLY):", options=available_sources)
-    present_blacklist = [s for s in DEFAULT_BLACKLIST if s in available_sources]
-    blacklist = st.multiselect("🚫 Blacklist (Always Hide):", options=available_sources, default=present_blacklist)
-
+    # NEW CATEGORY FILTERS
+    st.subheader("Filter by Source Tier")
+    show_credible = st.checkbox("Credible / Newswires", value=True)
+    show_social = st.checkbox("Social Media", value=False)
+    show_other = st.checkbox("Other Sources", value=False)
+    
     st.divider()
     keyword_filter = st.text_input("🔍 Search Headlines", "").strip().lower()
 
-# --- 4. MAIN LOGIC ---
 st.title("DivFin News Screener")
 
-# Determine which items to search based on selection
-items_to_search = []
+# Building the task list
+search_tasks = []
 if selected_view == "Core Coverage (All Parents)":
-    items_to_search = [item for sublist in CORE_TICKERS.values() for item in sublist]
+    search_tasks = [(item, False) for sublist in CORE_TICKERS.values() for item in sublist]
 elif selected_view == "Full Universe (Everything)":
-    items_to_search = ([item for sublist in CORE_TICKERS.values() for item in sublist] + 
-                       [item for sublist in SUBS_MAP.values() for item in sublist])
+    search_tasks += [(item, False) for sublist in CORE_TICKERS.values() for item in sublist]
+    search_tasks += [(item, True) for sublist in SUBS_MAP.values() for item in sublist]
 elif selected_view in CORE_TICKERS:
-    items_to_search = CORE_TICKERS[selected_view]
+    search_tasks = [(item, False) for item in CORE_TICKERS[selected_view]]
 elif selected_view.replace(" Subs", "") in SUBS_MAP:
-    items_to_search = SUBS_MAP[selected_view.replace(" Subs", "")]
+    search_tasks = [(item, True) for item in SUBS_MAP[selected_view.replace(" Subs", "")]]
 
-# Filter out visual headers from the logic
 is_valid_selection = not selected_view.startswith("---")
 
 if is_valid_selection:
     if st.button(f"Search {selected_view}", use_container_width=True):
         all_hits = []
-        with st.spinner(f'Searching {len(items_to_search)} terms...'):
+        with st.spinner(f'Searching {len(search_tasks)} terms...'):
             with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-                future_to_company = {executor.submit(get_google_news, comp): comp for comp in items_to_search}
+                future_to_company = {executor.submit(get_google_news, name, is_sub): name for name, is_sub in search_tasks}
                 for future in concurrent.futures.as_completed(future_to_company):
                     all_hits.extend(future.result())
         st.session_state.news_data = all_hits
 
-# --- 5. DISPLAY ---
+# --- 5. CATEGORY FILTERING LOGIC ---
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data)
     df = df.drop_duplicates(subset=['Link']).sort_values(by="sort_key", ascending=False)
     
-    if whitelist:
-        df = df[df['Source'].isin(whitelist)]
-    if blacklist:
-        df = df[~df['Source'].isin(blacklist)]
+    # Apply the Category Filter based on Sidebar Checkboxes
+    allowed_categories = []
+    if show_credible: allowed_categories.append("Credible")
+    if show_social: allowed_categories.append("Social Media")
+    if show_other: allowed_categories.append("Other")
+    
+    df = df[df['Category'].isin(allowed_categories)]
+    
+    # Apply Keyword search
     if keyword_filter:
         df = df[df['Headline'].str.lower().str.contains(keyword_filter)]
 
     st.success(f"Displaying {len(df)} headlines for {selected_view}.")
+    
+    # Show Category in the table so you can verify the logic
     st.dataframe(
-        df[["Date", "Company", "Source", "Headline", "Link"]], 
+        df[["Date", "Company", "Category", "Source", "Headline", "Link"]], 
         column_config={"Link": st.column_config.LinkColumn("View", display_text="Open")},
         use_container_width=True, 
         hide_index=True
     )
 else:
-    st.info("Select a group from the sidebar and click Search.")
+    st.info("Select a watchlist and click Search.")
