@@ -6,51 +6,55 @@ import ssl
 from datetime import datetime
 import concurrent.futures
 
-# --- 1. CONFIGURATION ---
-WATCHLIST_GROUPS = {
-    "Alaris": ["Alaris", "Alaris Equity Partners", "3E, LLC", "Accscient, LLC", "Amur Financial Group Inc.", "Body Contour Centers, LLC (SonoBello)", "Carey Electric Contracting, LLC", 
-               "Cresa, LLC", "DNT Construction, LLC", "Edgewater Technical Associates, LLC", "Fleet Advantage, LLC", "Federal Management Partners, LLC (FMP)", "GWM Holdings, Inc. (GlobalWide Media)", 
-               "Heritage Restoration, LLC", "Kubik, LP", "LMS Reinforcing Steel Group", "McCoy Roofing Holdings LLC", "Ohana Growth Partners, LLC", "Optimus SBR", 
-               "Professional Electric Contractors of Connecticut, Inc. (PEC)", "Sagamore Plumbing and Heating LLC", "SCR Mining & Tunnelling L.P.", "The Shipyard, LLC", "Unify Consulting, LLC", 
-               "Vehicle Leasing Holdings, LLC (D&M Leasing)"],
+# --- 1. DATA STRUCTURE ---
+# Define the subsidiaries separately so we can map them to parents easily
+SUBS_MAP = {
+    "Alaris": ["3E, LLC", "Accscient, LLC", "Amur Financial Group", "SonoBello", "Cresa, LLC", "DNT Construction", "Edgewater Technical Associates", "Fleet Advantage", 
+               "Federal Management Partners", "GlobalWide Media", "Heritage Restoration", "Kubik, LP", "LMS Reinforcing Steel", "McCoy Roofing", "Ohana Growth Partners", 
+               "Optimus SBR", "Professional Electric Contractors", "Sagamore Plumbing", "SCR Mining & Tunnelling", "The Shipyard, LLC", "Unify Consulting", "D&M Leasing"],
     
-    "Bridgemarq (BRE)": ["Bridgemarq Real Estate Services", "BRE.TO", "Royal LePage", "Proprio Direct", "Via Capitale", "Spencer Enright", "Phil Soper", "Johnston & Daniel"],
+    "Exchange Income": ["Canadian North", "PAL Aerospace", "PAL Airlines", "Perimeter Aviation", "Calm Air", "Bearskin Airlines", "Keewatin Air", "Regional One", 
+                        "Custom Helicopters", "Moncton Flight College", "Newfoundland Helicopters", "Air Borealis", "Mach2", "BC Medevac", "Northern Mat and Bridge", 
+                        "Spartan Mat", "WesTower Communications", "Quest Window Systems", "BVGlazing Systems", "Ben Machine Products", "Stainless Fabrication", 
+                        "DryAir Manufacturing", "Hansen Industries", "Overlanders Manufacturing", "LV Control Mfg", "Water Blast Manufacturing", "Duhamel Sawmill"],
     
-    "Canaccord (CF)": ["Canaccord Genuity", "CF.TO", "Dan Daviau", "Canaccord Wealth Management", "Sawaya Partners", "Questrade partner", "Canaccord Genuity Group"],
-    
-    "Diversified Royalties (DIV)": ["Diversified Royalty Corp", "DIV.TO", "Sean Morrison", "Mr. Lube", "Air Miles", "Sutton Group", "Nurse Next Door", "Oxford Learning", "BarBurrito", "Cheba Hut", "Mr. Mikes"],
-    
-    "Dominion Lending (DLCG)": ["Dominion Lending Centres", "DLCG.TO", "Gary Mauris", "Mortgage Architects", "MCC Mortgage Centre", "Newton Connectivity", "Chris Kayat"],
-    
-    "Exchange Income (EIF)": [
-        "Exchange Income Corp", "EIF.TO", "Mike Pyle", "Adam Terwin", "Jake Trainor",
-        "Canadian North", "PAL Aerospace", "PAL Airlines", "Perimeter Aviation", 
-        "Calm Air", "Bearskin Airlines", "Keewatin Air", "Regional One", 
-        "Custom Helicopters", "Moncton Flight College", "Newfoundland Helicopters", 
-        "Air Borealis", "Mach2", "BC Medevac",
-        "Northern Mat and Bridge", "Spartan Mat", "Spartan Composites", 
-        "WesTower Communications", "Quest Window Systems", "BVGlazing Systems", 
-        "Ben Machine Products", "Stainless Fabrication", "DryAir Manufacturing", 
-        "Hansen Industries", "Overlanders Manufacturing", "LV Control Mfg", 
-        "Water Blast Manufacturing", "Duhamel Sawmill"
-    ],
-    
-    "Fairfax (FFH)": ["Fairfax Financial Holdings", "FFH.TO", "Prem Watsa", "Odyssey Group", "Allied World", "Northbridge Financial", "Crum & Forster", "Brit Insurance"],
-    "goeasy (GSY)": ["goeasy Ltd", "GSY.TO", "Jason Mullins", "easyfinancial", "easyhome", "LendCare"],
-    "Propel (PRL)": ["Propel Holdings", "PRL.TO", "Clive Kinross", "CreditFresh", "MoneyKey", "Fora Credit", "QuidMarket", "FreshLine"],
-    "RFA Financial (RFA)": ["RFA Financial Inc", "RFA.TO", "RFA Bank of Canada", "RFA Mortgage", "RFA REIT", "Holloway Lodging"],
-    "Trisura (TSU)": ["Trisura Group", "TSU.TO", "David Clare", "Trisura Guarantee Insurance", "Trisura Specialty", "Chris Sekine"],
-    "Versabank (VSB)": ["VersaBank", "VSB.TO", "David Taylor", "DRT Cyber", "Structured Receivable"],
-    "Westaim (WED)": ["Westaim Corporation", "WED.TO", "Cameron MacDonald", "Skyward Specialty", "Arena Investors", "Arena Wealth Management"],
-    
-    "All": ["Alaris", "Bridgemarq", "Canaccord", "Diversified Royalty", "Dominion Lending", "Exchange Income", "Fairfax", "goeasy", "Propel", "RFA Financial", "Trisura", "VersaBank", "Westaim"]
+    "Bridgemarq": ["Royal LePage", "Proprio Direct", "Via Capitale"],
+    "Diversified Royalty": ["Mr. Lube", "Air Miles", "Sutton Group", "Nurse Next Door", "Oxford Learning", "BarBurrito", "Cheba Hut", "Mr. Mikes"],
+    "Dominion Lending": ["Mortgage Architects", "MCC Mortgage Centre", "Newton Connectivity"],
+    "Fairfax": ["Odyssey Group", "Allied World", "Northbridge Financial", "Crum & Forster", "Brit Insurance"],
+    "goeasy": ["easyfinancial", "easyhome", "LendCare"],
+    "Propel": ["CreditFresh", "MoneyKey", "Fora Credit", "QuidMarket", "FreshLine"],
+    "Trisura": ["Trisura Guarantee Insurance", "Trisura Specialty"],
+    "Versabank": ["DRT Cyber", "Structured Receivable"],
+    "Westaim": ["Skyward Specialty", "Arena Investors", "Arena Wealth Management"]
 }
+
+CORE_TICKERS = {
+    "Alaris": ["Alaris Equity Partners", "AD.TO"],
+    "Bridgemarq": ["Bridgemarq Real Estate Services", "BRE.TO"],
+    "Canaccord": ["Canaccord Genuity", "CF.TO"],
+    "Diversified Royalty": ["Diversified Royalty Corp", "DIV.TO"],
+    "Dominion Lending": ["Dominion Lending Centres", "DLCG.TO"],
+    "Exchange Income": ["Exchange Income Corp", "EIF.TO"],
+    "Fairfax": ["Fairfax Financial Holdings", "FFH.TO"],
+    "goeasy": ["goeasy Ltd", "GSY.TO"],
+    "Propel": ["Propel Holdings", "PRL.TO"],
+    "RFA Financial": ["RFA Financial Inc", "RFA.TO"],
+    "Trisura": ["Trisura Group", "TSU.TO"],
+    "Versabank": ["VersaBank", "VSB.TO"],
+    "Westaim": ["Westaim Corporation", "WED.TO"]
+}
+
+# Build the selection options for the dropdown
+dropdown_options = ["--- MASTER VIEWS ---", "Core Coverage (All Parents)", "Full Universe (Everything)"]
+dropdown_options += ["--- INDIVIDUAL PARENTS ---"] + sorted(list(CORE_TICKERS.keys()))
+dropdown_options += ["--- SUBSIDIARY GROUPS ---"] + sorted([f"{k} Subs" for k in SUBS_MAP.keys()])
 
 DEFAULT_BLACKLIST = ["MarketBeat", "Simply Wall St", "Zacks Investment Research", "Stock Traders Daily", "Defense World", "Best Stocks"]
 
 LOGO_URL = "https://cormark.com/Portals/_default/Skins/Cormark/Images/Cormark_4C_183x42px.png"
 
-st.set_page_config(page_title="Purdchuk News Screener", page_icon="📈", layout="wide")
+st.set_page_config(page_title="DivFin News Screener", page_icon="📈", layout="wide")
 
 # --- 2. THE SCANNER ---
 def get_google_news(company_name):
