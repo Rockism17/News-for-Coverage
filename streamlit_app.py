@@ -25,7 +25,8 @@ CORE_TICKERS = {
     "Alaris": ["Alaris Equity Partners", "AD.TO"],
     "Bridgemarq": ["Bridgemarq Real Estate Services", "BRE.TO"],
     "Canaccord": ["Canaccord Genuity", "CF.TO"],
-    "Diversified Royalty": ["Diversified Royalty Corp", "DIV.TO"],
+    # EXPANDED SEARCH FOR DIV:
+    "Diversified Royalty": ["Diversified Royalty Corp", "DIV.TO", "DIV Royalty", "DIV", "TSX:DIV"],
     "Dominion Lending": ["Dominion Lending Centres", "DLCG.TO"],
     "Exchange Income": ["Exchange Income", "EIF.TO"],
     "Fairfax": ["Fairfax Financial Holdings", "FFH.TO"],
@@ -57,10 +58,10 @@ def classify_source(source_name):
         return "Social Media"
     return "Other"
 
-# --- 3. THE SCANNER ---
-def get_google_news(company_name, use_exact=False):
-    search_term = f'"{company_name}"' if use_exact else company_name
-    query = quote(f'{search_term} when:14d')
+# --- 3. THE SCANNER WITH STRICT DIV FILTER ---
+def get_google_news(search_term, parent_name, use_exact=False):
+    actual_search = f'"{search_term}"' if use_exact else search_term
+    query = quote(f'{actual_search} when:7d')
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
     
     if hasattr(ssl, '_create_unverified_context'):
@@ -69,7 +70,19 @@ def get_google_news(company_name, use_exact=False):
     feed = feedparser.parse(url)
     results = []
     
-    for entry in feed.entries[:20]: # Keep the 20 result buffer
+    for entry in feed.entries[:20]:
+        headline = entry.title
+        snippet = entry.get('summary', '').lower()
+        headline_lower = headline.lower()
+
+        # --- STRICT FILTER FOR DIVERSIFIED ROYALTY ---
+        # If the search is for Diversified Royalty terms, ensure the article is actually about them.
+        # This prevents news about generic "Music Royalties" or "Pharma Royalties" from appearing.
+        if parent_name == "Diversified Royalty":
+            if "diversified" not in headline_lower and "diversified" not in snippet:
+                if "royalty corp" not in headline_lower and "royalty corp" not in snippet:
+                    continue # Skip if it doesn't meet the strict criteria
+
         parsed_date = entry.get('published_parsed')
         sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
         
@@ -82,7 +95,7 @@ def get_google_news(company_name, use_exact=False):
         results.append({
             "sort_key": sort_date,
             "Date": sort_date.strftime('%b %d, %Y'),
-            "Company": company_name,
+            "Company": parent_name,
             "Source": source,
             "Category": classify_source(source),
             "Headline": entry.title, 
@@ -118,26 +131,29 @@ with st.sidebar:
 
 st.title("DivFin News Screener")
 
-# Building the task list
+# Building the task list (term, parent_name, is_sub)
 search_tasks = []
 if selected_view == "Core Coverage (All Parents)":
-    search_tasks = [(item, False) for sublist in CORE_TICKERS.values() for item in sublist]
+    for parent, terms in CORE_TICKERS.items():
+        for t in terms: search_tasks.append((t, parent, False))
 elif selected_view == "Full Universe (Everything)":
-    search_tasks += [(item, False) for sublist in CORE_TICKERS.values() for item in sublist]
-    search_tasks += [(item, True) for sublist in SUBS_MAP.values() for item in sublist]
+    for parent, terms in CORE_TICKERS.items():
+        for t in terms: search_tasks.append((t, parent, False))
+    for parent, subs in SUBS_MAP.items():
+        for s in subs: search_tasks.append((s, parent, True))
 elif selected_view in CORE_TICKERS:
-    search_tasks = [(item, False) for item in CORE_TICKERS[selected_view]]
+    for t in CORE_TICKERS[selected_view]: search_tasks.append((t, selected_view, False))
 elif selected_view.replace(" Subs", "") in SUBS_MAP:
-    search_tasks = [(item, True) for item in SUBS_MAP[selected_view.replace(" Subs", "")]]
+    p_name = selected_view.replace(" Subs", "")
+    for s in SUBS_MAP[p_name]: search_tasks.append((s, p_name, True))
 
-is_valid_selection = not selected_view.startswith("---")
-
-if is_valid_selection:
+if not selected_view.startswith("---"):
     if st.button(f"Search {selected_view}", use_container_width=True):
         all_hits = []
         with st.spinner(f'Searching {len(search_tasks)} terms...'):
             with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-                future_to_company = {executor.submit(get_google_news, name, is_sub): name for name, is_sub in search_tasks}
+                # Passing (term, parent_name, use_exact)
+                future_to_company = {executor.submit(get_google_news, task[0], task[1], task[2]): task[0] for task in search_tasks}
                 for future in concurrent.futures.as_completed(future_to_company):
                     all_hits.extend(future.result())
         st.session_state.news_data = all_hits
@@ -145,8 +161,6 @@ if is_valid_selection:
 # --- 5. CATEGORY FILTERING LOGIC ---
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data)
-    
-    # Keeping duplicates as requested in that specific version
     df = df.sort_values(by="sort_key", ascending=False)
     
     allowed_categories = []
@@ -166,5 +180,3 @@ if st.session_state.news_data:
         use_container_width=True, 
         hide_index=True
     )
-else:
-    st.info("Select a watchlist and click Search.")
