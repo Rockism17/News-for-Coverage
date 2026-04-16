@@ -6,18 +6,10 @@ import ssl
 from datetime import datetime
 import concurrent.futures
 
-# --- 1. DATA STRUCTURE ---
-# Define the subsidiaries separately so we can map them to parents easily
+# --- 1. DATA STRUCTURE (Expanded for better search hits) ---
 SUBS_MAP = {
-    "Alaris": ["3E, LLC", "Accscient, LLC", "Amur Financial Group", "SonoBello", "Cresa, LLC", "DNT Construction", "Edgewater Technical Associates", "Fleet Advantage", 
-               "Federal Management Partners", "GlobalWide Media", "Heritage Restoration", "Kubik, LP", "LMS Reinforcing Steel", "McCoy Roofing", "Ohana Growth Partners", 
-               "Optimus SBR", "Professional Electric Contractors", "Sagamore Plumbing", "SCR Mining & Tunnelling", "The Shipyard, LLC", "Unify Consulting", "D&M Leasing"],
-    
-    "Exchange Income": ["Canadian North", "PAL Aerospace", "PAL Airlines", "Perimeter Aviation", "Calm Air", "Bearskin Airlines", "Keewatin Air", "Regional One", 
-                        "Custom Helicopters", "Moncton Flight College", "Newfoundland Helicopters", "Air Borealis", "Mach2", "BC Medevac", "Northern Mat and Bridge", 
-                        "Spartan Mat", "WesTower Communications", "Quest Window Systems", "BVGlazing Systems", "Ben Machine Products", "Stainless Fabrication", 
-                        "DryAir Manufacturing", "Hansen Industries", "Overlanders Manufacturing", "LV Control Mfg", "Water Blast Manufacturing", "Duhamel Sawmill"],
-    
+    "Alaris": ["3E, LLC", "Accscient, LLC", "Amur Financial Group", "SonoBello", "Cresa, LLC", "DNT Construction", "Edgewater Technical Associates", "Fleet Advantage", "Federal Management Partners", "GlobalWide Media", "Heritage Restoration", "Kubik, LP", "LMS Reinforcing Steel", "McCoy Roofing", "Ohana Growth Partners", "Optimus SBR", "Professional Electric Contractors", "Sagamore Plumbing", "SCR Mining & Tunnelling", "The Shipyard, LLC", "Unify Consulting", "D&M Leasing"],
+    "Exchange Income": ["Canadian North", "PAL Aerospace", "PAL Airlines", "Perimeter Aviation", "Calm Air", "Bearskin Airlines", "Keewatin Air", "Regional One", "Custom Helicopters", "Moncton Flight College", "Newfoundland Helicopters", "Air Borealis", "Mach2", "BC Medevac", "Northern Mat and Bridge", "Spartan Mat", "WesTower Communications", "Quest Window Systems", "BVGlazing Systems", "Ben Machine Products", "Stainless Fabrication", "DryAir Manufacturing", "Hansen Industries", "Overlanders Manufacturing", "LV Control Mfg", "Water Blast Manufacturing", "Duhamel Sawmill"],
     "Bridgemarq": ["Royal LePage", "Proprio Direct", "Via Capitale"],
     "Diversified Royalty": ["Mr. Lube", "Air Miles", "Sutton Group", "Nurse Next Door", "Oxford Learning", "BarBurrito", "Cheba Hut", "Mr. Mikes"],
     "Dominion Lending": ["Mortgage Architects", "MCC Mortgage Centre", "Newton Connectivity"],
@@ -29,34 +21,37 @@ SUBS_MAP = {
     "Westaim": ["Skyward Specialty", "Arena Investors", "Arena Wealth Management"]
 }
 
+# Added Tickers back: Press releases ALMOST ALWAYS include the ticker (EIF, AD, etc.)
 CORE_TICKERS = {
-    "Alaris": ["Alaris Equity Partners"],
-    "Bridgemarq": ["Bridgemarq Real Estate Services"],
-    "Canaccord": ["Canaccord Genuity"],
-    "Diversified Royalty": ["Diversified Royalty Corp"],
-    "Dominion Lending": ["Dominion Lending Centres"],
-    "Exchange Income": ["Exchange Income Corp"],
-    "Fairfax": ["Fairfax Financial Holdings"],
-    "goeasy": ["goeasy Ltd"],
-    "Propel": ["Propel Holdings"],
-    "RFA Financial": ["RFA Financial Inc"],
-    "Trisura": ["Trisura Group"],
-    "Versabank": ["VersaBank"],
-    "Westaim": ["Westaim Corporation"]
+    "Alaris": ["Alaris Equity Partners", "AD.TO"],
+    "Bridgemarq": ["Bridgemarq Real Estate Services", "BRE.TO"],
+    "Canaccord": ["Canaccord Genuity", "CF.TO"],
+    "Diversified Royalty": ["Diversified Royalty Corp", "DIV.TO"],
+    "Dominion Lending": ["Dominion Lending Centres", "DLCG.TO"],
+    "Exchange Income": ["Exchange Income", "EIF.TO", "EIF"], # "Exchange Income" is broader than "Corp"
+    "Fairfax": ["Fairfax Financial Holdings", "FFH.TO"],
+    "goeasy": ["goeasy Ltd", "GSY.TO"],
+    "Propel": ["Propel Holdings", "PRL.TO"],
+    "RFA Financial": ["RFA Financial Inc", "RFA.TO"],
+    "Trisura": ["Trisura Group", "TSU.TO"],
+    "Versabank": ["VersaBank", "VSB.TO"],
+    "Westaim": ["Westaim Corporation", "WED.TO"]
 }
 
-# --- 2. SOURCE CLASSIFICATION LOGIC ---
+# --- 2. SOURCE CLASSIFICATION (Expanded) ---
 CREDIBLE_KEYWORDS = [
     "Bloomberg", "Reuters", "Globe and Mail", "Financial Post", "CNBC", "Yahoo Finance", 
     "The Star", "BNN", "Wall Street Journal", "WSJ", "Barron's", "Financial Times", 
     "Associated Press", "AP", "Canadian Press", "GlobeNewswire", "CNW Group", 
-    "PR Newswire", "Business Wire", "Accesswire", "Newsfile", "Marketwired"
+    "PR Newswire", "Business Wire", "BusinessWire", "Accesswire", "Newsfile", "Marketwired",
+    "Morningstar", "Barchart", "Seeking Alpha", "MarketWatch", "Newswire"
 ]
 
 SOCIAL_KEYWORDS = ["Twitter", "X.com", "Reddit", "Stocktwits", "Facebook", "LinkedIn", "YouTube"]
 
 def classify_source(source_name):
-    source_lower = source_name.lower()
+    if not source_name: return "Other"
+    source_lower = str(source_name).lower()
     if any(k.lower() in source_lower for k in CREDIBLE_KEYWORDS):
         return "Credible"
     if any(k.lower() in source_lower for k in SOCIAL_KEYWORDS):
@@ -74,11 +69,18 @@ def get_google_news(company_name, use_exact=False):
         
     feed = feedparser.parse(url)
     results = []
-    for entry in feed.entries[:50]:
+    
+    # Increased limit to 20 so press releases don't get buried by general news
+    for entry in feed.entries[:20]:
         parsed_date = entry.get('published_parsed')
         sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
         
-        source = entry.source.get('title', 'Google News')
+        # More robust source extraction
+        source = "Google News"
+        if hasattr(entry, 'source'):
+            source = entry.source.get('title', 'Google News')
+        elif " - " in entry.title:
+            source = entry.title.split(" - ")[-1]
         
         results.append({
             "sort_key": sort_date,
@@ -91,7 +93,7 @@ def get_google_news(company_name, use_exact=False):
         })
     return results
 
-# --- 4. STREAMLIT UI ---
+# --- 4. UI ---
 st.set_page_config(page_title="DivFin News Screener", page_icon="📈", layout="wide")
 
 if 'news_data' not in st.session_state:
@@ -109,7 +111,6 @@ with st.sidebar:
     selected_view = st.selectbox("Select Watchlist", options=dropdown_options)
     
     st.divider()
-    
     st.subheader("Filter by Source Tier")
     show_credible = st.checkbox("Credible / Newswires", value=True)
     show_social = st.checkbox("Social Media", value=False)
@@ -131,9 +132,7 @@ elif selected_view in CORE_TICKERS:
 elif selected_view.replace(" Subs", "") in SUBS_MAP:
     search_tasks = [(item, True) for item in SUBS_MAP[selected_view.replace(" Subs", "")]]
 
-is_valid_selection = not selected_view.startswith("---")
-
-if is_valid_selection:
+if not selected_view.startswith("---"):
     if st.button(f"Search {selected_view}", use_container_width=True):
         all_hits = []
         with st.spinner(f'Searching {len(search_tasks)} terms...'):
@@ -143,11 +142,8 @@ if is_valid_selection:
                     all_hits.extend(future.result())
         st.session_state.news_data = all_hits
 
-# --- 5. CATEGORY FILTERING LOGIC ---
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data)
-    
-    # DEDUPLICATION REMOVED: All results (including identical links) are kept
     df = df.sort_values(by="sort_key", ascending=False)
     
     allowed_categories = []
@@ -161,12 +157,9 @@ if st.session_state.news_data:
         df = df[df['Headline'].str.lower().str.contains(keyword_filter)]
 
     st.success(f"Displaying {len(df)} headlines for {selected_view}.")
-    
     st.dataframe(
         df[["Date", "Company", "Category", "Source", "Headline", "Link"]], 
         column_config={"Link": st.column_config.LinkColumn("View", display_text="Open")},
         use_container_width=True, 
         hide_index=True
     )
-else:
-    st.info("Select a watchlist and click Search.")
