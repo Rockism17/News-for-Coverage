@@ -57,8 +57,11 @@ LOGO_URL = "https://cormark.com/Portals/_default/Skins/Cormark/Images/Cormark_4C
 st.set_page_config(page_title="DivFin News Screener", page_icon="📈", layout="wide")
 
 # --- 2. THE SCANNER ---
-def get_google_news(company_name):
-    query = quote(f'{company_name} when:7d')
+def get_google_news(company_name, use_exact=False):
+    # Logic: Wrap in quotes ONLY if it's a subsidiary to reduce noise
+    search_term = f'"{company_name}"' if use_exact else company_name
+    query = quote(f'{search_term} when:7d')
+    
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
     
     if hasattr(ssl, '_create_unverified_context'):
@@ -74,8 +77,8 @@ def get_google_news(company_name):
             "sort_key": sort_date,
             "Date": sort_date.strftime('%b %d, %Y'),
             "Company": company_name,
-            "Source": entry.source.get('title', 'Google News'), # Extracts publisher name
-            "Headline": entry.title, # Raw headline from feed
+            "Source": entry.source.get('title', 'Google News'),
+            "Headline": entry.title, 
             "Link": entry.link
         })
     return results
