@@ -45,37 +45,26 @@ CORE_TICKERS = {
     "Westaim": ["Westaim Corporation"]
 }
 
-# --- 2. IMPROVED SOURCE CLASSIFICATION LOGIC ---
-# Expanded list to catch variations (e.g., "GlobeNewswire (press release)")
+# --- 2. SOURCE CLASSIFICATION LOGIC ---
 CREDIBLE_KEYWORDS = [
     "Bloomberg", "Reuters", "Globe and Mail", "Financial Post", "CNBC", "Yahoo Finance", 
     "The Star", "BNN", "Wall Street Journal", "WSJ", "Barron's", "Financial Times", 
     "Associated Press", "AP", "Canadian Press", "GlobeNewswire", "CNW Group", 
-    "PR Newswire", "Business Wire", "Accesswire", "Newsfile", "Marketwired",
-    "Newswire", "Press Release", "Service", "Wire", "Broadcast", "Journal", "Gazette"
+    "PR Newswire", "Business Wire", "Accesswire", "Newsfile", "Marketwired"
 ]
 
-SOCIAL_KEYWORDS = ["Twitter", "X.com", "Reddit", "Stocktwits", "Facebook", "LinkedIn", "YouTube", "Instagram"]
+SOCIAL_KEYWORDS = ["Twitter", "X.com", "Reddit", "Stocktwits", "Facebook", "LinkedIn", "YouTube"]
 
 def classify_source(source_name):
-    if not source_name:
-        return "Other"
-    
     source_lower = source_name.lower()
-    
-    # Priority 1: Check for Newswires/Credible
     if any(k.lower() in source_lower for k in CREDIBLE_KEYWORDS):
         return "Credible"
-    
-    # Priority 2: Check for Social Media
     if any(k.lower() in source_lower for k in SOCIAL_KEYWORDS):
         return "Social Media"
-    
     return "Other"
 
 # --- 3. THE SCANNER ---
 def get_google_news(company_name, use_exact=False):
-    # Added quotes for Subsidiaries as requested in previous turns
     search_term = f'"{company_name}"' if use_exact else company_name
     query = quote(f'{search_term} when:7d')
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
@@ -85,20 +74,12 @@ def get_google_news(company_name, use_exact=False):
         
     feed = feedparser.parse(url)
     results = []
-    
-    # Google News sometimes puts the publisher in entry.source or entry.title
     for entry in feed.entries[:10]:
         parsed_date = entry.get('published_parsed')
         sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
         
-        # Robust source extraction
-        source = "Unknown"
-        if hasattr(entry, 'source'):
-            source = entry.source.get('title', 'Google News')
-        elif " - " in entry.title:
-            # Fallback: Google often appends " - Source Name" to titles
-            source = entry.title.split(" - ")[-1]
-
+        source = entry.source.get('title', 'Google News')
+        
         results.append({
             "sort_key": sort_date,
             "Date": sort_date.strftime('%b %d, %Y'),
@@ -132,14 +113,13 @@ with st.sidebar:
     st.subheader("Filter by Source Tier")
     show_credible = st.checkbox("Credible / Newswires", value=True)
     show_social = st.checkbox("Social Media", value=False)
-    show_other = st.checkbox("Other Sources (Catch-all)", value=True) # Changed default to True for debugging
+    show_other = st.checkbox("Other Sources", value=False)
     
     st.divider()
     keyword_filter = st.text_input("🔍 Search Headlines", "").strip().lower()
 
 st.title("DivFin News Screener")
 
-# Building task list logic
 search_tasks = []
 if selected_view == "Core Coverage (All Parents)":
     search_tasks = [(item, False) for sublist in CORE_TICKERS.values() for item in sublist]
@@ -166,7 +146,9 @@ if is_valid_selection:
 # --- 5. CATEGORY FILTERING LOGIC ---
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data)
-    df = df.drop_duplicates(subset=['Link']).sort_values(by="sort_key", ascending=False)
+    
+    # DEDUPLICATION REMOVED: All results (including identical links) are kept
+    df = df.sort_values(by="sort_key", ascending=False)
     
     allowed_categories = []
     if show_credible: allowed_categories.append("Credible")
@@ -178,7 +160,7 @@ if st.session_state.news_data:
     if keyword_filter:
         df = df[df['Headline'].str.lower().str.contains(keyword_filter)]
 
-    st.success(f"Displaying {len(df)} headlines.")
+    st.success(f"Displaying {len(df)} headlines for {selected_view}.")
     
     st.dataframe(
         df[["Date", "Company", "Category", "Source", "Headline", "Link"]], 
