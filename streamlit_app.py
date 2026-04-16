@@ -6,7 +6,7 @@ import ssl
 from datetime import datetime
 import concurrent.futures
 
-# --- 1. DATA STRUCTURE (Expanded for better search hits) ---
+# --- 1. DATA STRUCTURE ---
 SUBS_MAP = {
     "Alaris": ["3E, LLC", "Accscient, LLC", "Amur Financial Group", "SonoBello", "Cresa, LLC", "DNT Construction", "Edgewater Technical Associates", "Fleet Advantage", "Federal Management Partners", "GlobalWide Media", "Heritage Restoration", "Kubik, LP", "LMS Reinforcing Steel", "McCoy Roofing", "Ohana Growth Partners", "Optimus SBR", "Professional Electric Contractors", "Sagamore Plumbing", "SCR Mining & Tunnelling", "The Shipyard, LLC", "Unify Consulting", "D&M Leasing"],
     "Exchange Income": ["Canadian North", "PAL Aerospace", "PAL Airlines", "Perimeter Aviation", "Calm Air", "Bearskin Airlines", "Keewatin Air", "Regional One", "Custom Helicopters", "Moncton Flight College", "Newfoundland Helicopters", "Air Borealis", "Mach2", "BC Medevac", "Northern Mat and Bridge", "Spartan Mat", "WesTower Communications", "Quest Window Systems", "BVGlazing Systems", "Ben Machine Products", "Stainless Fabrication", "DryAir Manufacturing", "Hansen Industries", "Overlanders Manufacturing", "LV Control Mfg", "Water Blast Manufacturing", "Duhamel Sawmill"],
@@ -21,30 +21,29 @@ SUBS_MAP = {
     "Westaim": ["Skyward Specialty", "Arena Investors", "Arena Wealth Management"]
 }
 
-# Added Tickers back: Press releases ALMOST ALWAYS include the ticker (EIF, AD, etc.)
 CORE_TICKERS = {
-    "Alaris": ["Alaris Equity Partners", "AD.TO"],
-    "Bridgemarq": ["Bridgemarq Real Estate Services", "BRE.TO"],
-    "Canaccord": ["Canaccord Genuity", "CF.TO"],
-    "Diversified Royalty": ["Diversified Royalty Corp", "DIV.TO"],
-    "Dominion Lending": ["Dominion Lending Centres", "DLCG.TO"],
-    "Exchange Income": ["Exchange Income", "EIF.TO", "EIF"], # "Exchange Income" is broader than "Corp"
-    "Fairfax": ["Fairfax Financial Holdings", "FFH.TO"],
-    "goeasy": ["goeasy Ltd", "GSY.TO"],
-    "Propel": ["Propel Holdings", "PRL.TO"],
+    "Alaris": ["Alaris Equity Partners", "AD.TO", "TSX:AD"],
+    "Bridgemarq": ["Bridgemarq Real Estate Services", "BRE.TO", "TSX:BRE"],
+    "Canaccord": ["Canaccord Genuity", "CF.TO", "TSX:CF"],
+    "Diversified Royalty": ["Diversified Royalty Corp", "DIV.TO", "TSX:DIV"],
+    "Dominion Lending": ["Dominion Lending Centres", "DLCG.TO", "TSX:DLCG"],
+    "Exchange Income": ["Exchange Income", "EIF.TO", "TSX:EIF"],
+    "Fairfax": ["Fairfax Financial Holdings", "FFH.TO", "TSX:FFH"],
+    "goeasy": ["goeasy Ltd", "GSY.TO", "TSX:GSY"],
+    "Propel": ["Propel Holdings", "PRL.TO", "TSX:PRL"],
     "RFA Financial": ["RFA Financial Inc", "RFA.TO"],
-    "Trisura": ["Trisura Group", "TSU.TO"],
-    "Versabank": ["VersaBank", "VSB.TO"],
-    "Westaim": ["Westaim Corporation", "WED.TO"]
+    "Trisura": ["Trisura Group", "TSU.TO", "TSX:TSU"],
+    "Versabank": ["VersaBank", "VSB.TO", "TSX:VSB"],
+    "Westaim": ["Westaim Corporation", "WED.TO", "TSX:WED"]
 }
 
-# --- 2. SOURCE CLASSIFICATION (Expanded) ---
+# --- 2. CLASSIFICATION ---
 CREDIBLE_KEYWORDS = [
     "Bloomberg", "Reuters", "Globe and Mail", "Financial Post", "CNBC", "Yahoo Finance", 
     "The Star", "BNN", "Wall Street Journal", "WSJ", "Barron's", "Financial Times", 
     "Associated Press", "AP", "Canadian Press", "GlobeNewswire", "CNW Group", 
     "PR Newswire", "Business Wire", "BusinessWire", "Accesswire", "Newsfile", "Marketwired",
-    "Morningstar", "Barchart", "Seeking Alpha", "MarketWatch", "Newswire"
+    "Morningstar", "Barchart", "Seeking Alpha", "MarketWatch", "Newswire", "TMX"
 ]
 
 SOCIAL_KEYWORDS = ["Twitter", "X.com", "Reddit", "Stocktwits", "Facebook", "LinkedIn", "YouTube"]
@@ -58,10 +57,11 @@ def classify_source(source_name):
         return "Social Media"
     return "Other"
 
-# --- 3. THE SCANNER ---
-def get_google_news(company_name, use_exact=False):
-    search_term = f'"{company_name}"' if use_exact else company_name
-    query = quote(f'{search_term} when:7d')
+# --- 3. THE SCANNER WITH VALIDATION LOGIC ---
+def get_google_news(search_term, validation_name, use_exact=False):
+    # Prepare the search query
+    actual_search = f'"{search_term}"' if use_exact else search_term
+    query = quote(f'{actual_search} when:7d')
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
     
     if hasattr(ssl, '_create_unverified_context'):
@@ -70,25 +70,37 @@ def get_google_news(company_name, use_exact=False):
     feed = feedparser.parse(url)
     results = []
     
-    # Increased limit to 20 so press releases don't get buried by general news
+    # We use validation_name (e.g., "Alaris") to filter out noise
+    v_name = validation_name.lower()
+
     for entry in feed.entries[:20]:
+        headline = entry.title
+        # The 'summary' usually contains the first few sentences of the article body
+        body_snippet = entry.get('summary', '').lower()
+        headline_lower = headline.lower()
+        
+        # VALIDATION LOGIC: 
+        # If the core company name is not in the headline AND not in the body snippet, skip it.
+        # This kills news about "AD" (advertisements) but keeps news about "Alaris (AD.TO)"
+        if v_name not in headline_lower and v_name not in body_snippet:
+            continue
+
         parsed_date = entry.get('published_parsed')
         sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
         
-        # More robust source extraction
         source = "Google News"
         if hasattr(entry, 'source'):
             source = entry.source.get('title', 'Google News')
-        elif " - " in entry.title:
-            source = entry.title.split(" - ")[-1]
+        elif " - " in headline:
+            source = headline.split(" - ")[-1]
         
         results.append({
             "sort_key": sort_date,
             "Date": sort_date.strftime('%b %d, %Y'),
-            "Company": company_name,
+            "Company": validation_name, # Display the parent name
             "Source": source,
             "Category": classify_source(source),
-            "Headline": entry.title, 
+            "Headline": headline, 
             "Link": entry.link
         })
     return results
@@ -121,30 +133,46 @@ with st.sidebar:
 
 st.title("DivFin News Screener")
 
+# Building the task list with (search_term, validation_name, is_sub)
 search_tasks = []
-if selected_view == "Core Coverage (All Parents)":
-    search_tasks = [(item, False) for sublist in CORE_TICKERS.values() for item in sublist]
-elif selected_view == "Full Universe (Everything)":
-    search_tasks += [(item, False) for sublist in CORE_TICKERS.values() for item in sublist]
-    search_tasks += [(item, True) for sublist in SUBS_MAP.values() for item in sublist]
-elif selected_view in CORE_TICKERS:
-    search_tasks = [(item, False) for item in CORE_TICKERS[selected_view]]
-elif selected_view.replace(" Subs", "") in SUBS_MAP:
-    search_tasks = [(item, True) for item in SUBS_MAP[selected_view.replace(" Subs", "")]]
 
+if selected_view == "Core Coverage (All Parents)":
+    for parent, terms in CORE_TICKERS.items():
+        for term in terms:
+            search_tasks.append((term, parent, False))
+            
+elif selected_view == "Full Universe (Everything)":
+    for parent, terms in CORE_TICKERS.items():
+        for term in terms: search_tasks.append((term, parent, False))
+    for parent, subs in SUBS_MAP.items():
+        for sub in subs: search_tasks.append((sub, sub, True))
+
+elif selected_view in CORE_TICKERS:
+    for term in CORE_TICKERS[selected_view]:
+        search_tasks.append((term, selected_view, False))
+
+elif selected_view.replace(" Subs", "") in SUBS_MAP:
+    parent_key = selected_view.replace(" Subs", "")
+    for sub in SUBS_MAP[parent_key]:
+        search_tasks.append((sub, sub, True))
+
+# --- EXECUTION ---
 if not selected_view.startswith("---"):
     if st.button(f"Search {selected_view}", use_container_width=True):
         all_hits = []
-        with st.spinner(f'Searching {len(search_tasks)} terms...'):
+        with st.spinner(f'Verifying {len(search_tasks)} signals...'):
             with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-                future_to_company = {executor.submit(get_google_news, name, is_sub): name for name, is_sub in search_tasks}
+                # Passes (search_term, validation_name, use_exact)
+                future_to_company = {executor.submit(get_google_news, task[0], task[1], task[2]): task[0] for task in search_tasks}
                 for future in concurrent.futures.as_completed(future_to_company):
                     all_hits.extend(future.result())
         st.session_state.news_data = all_hits
 
+# --- DISPLAY ---
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data)
-    df = df.sort_values(by="sort_key", ascending=False)
+    # Deduplicate after validation
+    df = df.drop_duplicates(subset=['Link']).sort_values(by="sort_key", ascending=False)
     
     allowed_categories = []
     if show_credible: allowed_categories.append("Credible")
@@ -156,7 +184,7 @@ if st.session_state.news_data:
     if keyword_filter:
         df = df[df['Headline'].str.lower().str.contains(keyword_filter)]
 
-    st.success(f"Displaying {len(df)} headlines for {selected_view}.")
+    st.success(f"Displaying {len(df)} validated headlines.")
     st.dataframe(
         df[["Date", "Company", "Category", "Source", "Headline", "Link"]], 
         column_config={"Link": st.column_config.LinkColumn("View", display_text="Open")},
