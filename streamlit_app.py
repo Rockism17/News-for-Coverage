@@ -60,7 +60,7 @@ def classify_source(source_name):
 # --- 3. THE SCANNER ---
 def get_google_news(company_name, use_exact=False):
     search_term = f'"{company_name}"' if use_exact else company_name
-    query = quote(f'{search_term} when:7d')
+    query = quote(f'{search_term} when:14d')
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
     
     if hasattr(ssl, '_create_unverified_context'):
