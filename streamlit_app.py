@@ -30,19 +30,19 @@ SUBS_MAP = {
 }
 
 CORE_TICKERS = {
-    "Alaris": ["Alaris Equity Partners", "AD.TO"],
-    "Bridgemarq": ["Bridgemarq Real Estate Services", "BRE.TO"],
-    "Canaccord": ["Canaccord Genuity", "CF.TO"],
-    "Diversified Royalty": ["Diversified Royalty Corp", "DIV.TO"],
-    "Dominion Lending": ["Dominion Lending Centres", "DLCG.TO"],
-    "Exchange Income": ["Exchange Income Corp", "EIF.TO"],
-    "Fairfax": ["Fairfax Financial Holdings", "FFH.TO"],
-    "goeasy": ["goeasy Ltd", "GSY.TO"],
-    "Propel": ["Propel Holdings", "PRL.TO"],
-    "RFA Financial": ["RFA Financial Inc", "RFA.TO"],
-    "Trisura": ["Trisura Group", "TSU.TO"],
-    "Versabank": ["VersaBank", "VSB.TO"],
-    "Westaim": ["Westaim Corporation", "WED.TO"]
+    "Alaris": ["Alaris Equity Partners"],
+    "Bridgemarq": ["Bridgemarq Real Estate Services"],
+    "Canaccord": ["Canaccord Genuity"],
+    "Diversified Royalty": ["Diversified Royalty Corp"],
+    "Dominion Lending": ["Dominion Lending Centres"],
+    "Exchange Income": ["Exchange Income Corp"],
+    "Fairfax": ["Fairfax Financial Holdings"],
+    "goeasy": ["goeasy Ltd"],
+    "Propel": ["Propel Holdings"],
+    "RFA Financial": ["RFA Financial Inc"],
+    "Trisura": ["Trisura Group"],
+    "Versabank": ["VersaBank"],
+    "Westaim": ["Westaim Corporation"]
 }
 
 # Build the selection options for the dropdown
