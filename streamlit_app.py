@@ -93,7 +93,7 @@ def get_google_news(company_name, use_exact=False):
     return results
 
 # --- 4. STREAMLIT UI ---
-st.set_page_config(page_title="Purdchuk News Screener", page_icon="📈", layout="wide")
+st.set_page_config(page_title="DivFin News Screener", page_icon="📈", layout="wide")
 
 if 'news_data' not in st.session_state:
     st.session_state.news_data = []
