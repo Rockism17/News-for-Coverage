@@ -6,7 +6,7 @@ import ssl
 from datetime import datetime
 import concurrent.futures
 
-# --- 1. DATA STRUCTURE (Standardized Dominion Naming) ---
+# --- 1. DATA STRUCTURE ---
 SUBS_MAP = {
     "Alaris": ["3E, LLC", "Accscient, LLC", "Amur Financial Group", "SonoBello", "Cresa, LLC", "DNT Construction", "Edgewater Technical Associates", "Fleet Advantage", "Federal Management Partners", "GlobalWide Media", "Heritage Restoration", "Kubik, LP", "LMS Reinforcing Steel", "McCoy Roofing", "Ohana Growth Partners", "Optimus SBR", "Professional Electric Contractors", "Sagamore Plumbing", "SCR Mining & Tunnelling", "The Shipyard, LLC", "Unify Consulting", "D&M Leasing"],
     "Exchange Income": ["Canadian North", "PAL Aerospace", "PAL Airlines", "Perimeter Aviation", "Calm Air", "Bearskin Airlines", "Keewatin Air", "Regional One", "Custom Helicopters", "Moncton Flight College", "Newfoundland Helicopters", "Air Borealis", "Mach2", "BC Medevac", "Northern Mat and Bridge", "Spartan Mat", "WesTower Communications", "Quest Window Systems", "BVGlazing Systems", "Ben Machine Products", "Stainless Fabrication", "DryAir Manufacturing", "Hansen Industries", "Overlanders Manufacturing", "LV Control Mfg", "Water Blast Manufacturing", "Duhamel Sawmill"],
@@ -67,40 +67,36 @@ def get_google_news(search_term, display_name, validation_list):
     if hasattr(ssl, '_create_unverified_context'):
         ssl._create_default_https_context = ssl._create_unverified_context
         
-    try:
-        feed = feedparser.parse(url)
-        results = []
+    feed = feedparser.parse(url)
+    results = []
+    
+    for entry in feed.entries[:30]:
+        headline = entry.title
+        headline_lower = headline.lower()
         
-        for entry in feed.entries[:30]:
-            headline = entry.title
-            headline_lower = headline.lower()
-            
-            # UNIFIED VALIDATION: Check if headline contains search term or parts of it
-            # This is less strict than before to ensure we don't miss news
-            if not any(val.lower() in headline_lower for val in validation_list):
-                continue
+        # HEADLINE VALIDATION: Precise name-in-title check
+        if not any(val.lower() in headline_lower for val in validation_list):
+            continue
 
-            parsed_date = entry.get('published_parsed')
-            sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
-            
-            source = "Google News"
-            if hasattr(entry, 'source'):
-                source = entry.source.get('title', 'Google News')
-            elif " - " in headline:
-                source = headline.split(" - ")[-1]
-            
-            results.append({
-                "sort_key": sort_date,
-                "Date": sort_date.strftime('%b %d, %Y'),
-                "Company": display_name,
-                "Source": source,
-                "Category": classify_source(source),
-                "Headline": headline, 
-                "Link": entry.link
-            })
-        return results
-    except Exception:
-        return [] # Return empty list on failure rather than crashing the site
+        parsed_date = entry.get('published_parsed')
+        sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
+        
+        source = "Google News"
+        if hasattr(entry, 'source'):
+            source = entry.source.get('title', 'Google News')
+        elif " - " in headline:
+            source = headline.split(" - ")[-1]
+        
+        results.append({
+            "sort_key": sort_date,
+            "Date": sort_date.strftime('%b %d, %Y'),
+            "Company": display_name,
+            "Source": source,
+            "Category": classify_source(source),
+            "Headline": headline, 
+            "Link": entry.link
+        })
+    return results
 
 # --- 4. UI ---
 st.set_page_config(page_title="DivFin News Screener", page_icon="📈", layout="wide")
@@ -113,18 +109,22 @@ with st.sidebar:
     st.image(LOGO_URL)
     st.title("Screener Settings")
     
-    # Sort keys for dropdown to avoid any KeyErrors
-    subs_groups = sorted([f"{k} Subs" for k in SUBS_MAP.keys()])
     dropdown_options = ["--- MASTER VIEWS ---", "Core Coverage (All Parents)", "Full Universe (Everything)"]
     dropdown_options += ["--- INDIVIDUAL PARENTS ---"] + sorted(list(CORE_TICKERS.keys()))
-    dropdown_options += ["--- SUBSIDIARY GROUPS ---"] + subs_groups
+    dropdown_options += ["--- SUBSIDIARY GROUPS ---"] + sorted([f"{k} Subs" for k in SUBS_MAP.keys()])
     
     selected_view = st.selectbox("Select Watchlist", options=dropdown_options)
     
     st.divider()
+    
+    # --- DYNAMIC SOURCE SELECTION ---
+    # Automatically toggle all sources if a "Subs" group is selected
+    is_subs_selected = selected_view.endswith(" Subs")
+    
+    st.subheader("Filter by Source Tier")
     show_credible = st.checkbox("Credible / Newswires", value=True)
-    show_social = st.checkbox("Social Media", value=False)
-    show_other = st.checkbox("Other Sources", value=False)
+    show_social = st.checkbox("Social Media", value=is_subs_selected)
+    show_other = st.checkbox("Other Sources", value=is_subs_selected)
     
     st.divider()
     keyword_filter = st.text_input("🔍 Search Headlines", "").strip().lower()
@@ -132,7 +132,6 @@ with st.sidebar:
 st.title("DivFin News Screener")
 
 search_tasks = []
-# Logic to handle the selections
 if selected_view == "Core Coverage (All Parents)":
     for parent, terms in CORE_TICKERS.items():
         for t in terms: search_tasks.append((t, parent, CORE_TICKERS[parent]))
@@ -141,7 +140,7 @@ elif selected_view == "Full Universe (Everything)":
     for parent, terms in CORE_TICKERS.items():
         for t in terms: search_tasks.append((t, parent, CORE_TICKERS[parent]))
     for parent, subs in SUBS_MAP.items():
-        for s in subs: search_tasks.append((s, s, [s, parent])) # Validate against sub name OR parent name
+        for s in subs: search_tasks.append((s, s, [s]))
 
 elif selected_view in CORE_TICKERS:
     for t in CORE_TICKERS[selected_view]: 
@@ -151,21 +150,17 @@ elif selected_view.endswith(" Subs"):
     p_name = selected_view.replace(" Subs", "")
     if p_name in SUBS_MAP:
         for s in SUBS_MAP[p_name]: 
-            # Sub validation now includes the parent name as a fallback
-            search_tasks.append((s, s, [s, p_name]))
+            search_tasks.append((s, s, [s]))
 
 # --- EXECUTION ---
 if not selected_view.startswith("---"):
     if st.button(f"Search {selected_view}", use_container_width=True):
         all_hits = []
-        with st.spinner(f'Searching signals for {selected_view}...'):
-            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        with st.spinner(f'Searching {selected_view}...'):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
                 future_to_company = {executor.submit(get_google_news, task[0], task[1], task[2]): task[0] for task in search_tasks}
                 for future in concurrent.futures.as_completed(future_to_company):
-                    try:
-                        all_hits.extend(future.result())
-                    except Exception:
-                        continue # Skip failed threads
+                    all_hits.extend(future.result())
         st.session_state.news_data = all_hits
 
 # --- DISPLAY ---
