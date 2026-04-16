@@ -6,13 +6,13 @@ import ssl
 from datetime import datetime
 import concurrent.futures
 
-# --- 1. DATA STRUCTURE ---
+# --- 1. DATA STRUCTURE (Standardized Dominion Naming) ---
 SUBS_MAP = {
     "Alaris": ["3E, LLC", "Accscient, LLC", "Amur Financial Group", "SonoBello", "Cresa, LLC", "DNT Construction", "Edgewater Technical Associates", "Fleet Advantage", "Federal Management Partners", "GlobalWide Media", "Heritage Restoration", "Kubik, LP", "LMS Reinforcing Steel", "McCoy Roofing", "Ohana Growth Partners", "Optimus SBR", "Professional Electric Contractors", "Sagamore Plumbing", "SCR Mining & Tunnelling", "The Shipyard, LLC", "Unify Consulting", "D&M Leasing"],
     "Exchange Income": ["Canadian North", "PAL Aerospace", "PAL Airlines", "Perimeter Aviation", "Calm Air", "Bearskin Airlines", "Keewatin Air", "Regional One", "Custom Helicopters", "Moncton Flight College", "Newfoundland Helicopters", "Air Borealis", "Mach2", "BC Medevac", "Northern Mat and Bridge", "Spartan Mat", "WesTower Communications", "Quest Window Systems", "BVGlazing Systems", "Ben Machine Products", "Stainless Fabrication", "DryAir Manufacturing", "Hansen Industries", "Overlanders Manufacturing", "LV Control Mfg", "Water Blast Manufacturing", "Duhamel Sawmill"],
     "Bridgemarq": ["Royal LePage", "Proprio Direct", "Via Capitale"],
     "Diversified Royalty": ["Mr. Lube", "Air Miles", "Sutton Group", "Nurse Next Door", "Oxford Learning", "BarBurrito", "Cheba Hut", "Mr. Mikes"],
-    "Dominion Lending": ["Mortgage Architects", "MCC Mortgage Centre", "Newton Connectivity"],
+    "Dominion Lending": ["Mortgage Architects", "MCC Mortgage Centre", "Newton Connectivity", "DLC Group"],
     "Fairfax": ["Odyssey Group", "Allied World", "Northbridge Financial", "Crum & Forster", "Brit Insurance"],
     "goeasy": ["easyfinancial", "easyhome", "LendCare"],
     "Propel": ["CreditFresh", "MoneyKey", "Fora Credit", "QuidMarket", "FreshLine"],
@@ -26,7 +26,7 @@ CORE_TICKERS = {
     "Bridgemarq": ["Bridgemarq", "BRE.TO"],
     "Canaccord": ["Canaccord", "CF.TO"],
     "Diversified Royalty": ["Diversified Royalty", "DIV.TO", "DIV"],
-    "Dominion Lending": ["Dominion Lending", "DLCG.TO", "DLC Group", "DLCG"],
+    "Dominion Lending": ["Dominion Lending Centres", "DLCG.TO", "DLC Group", "DLCG"],
     "Exchange Income": ["Exchange Income", "EIF.TO", "EIF"],
     "Fairfax": ["Fairfax Financial", "FFH.TO"],
     "goeasy": ["goeasy", "GSY.TO"],
@@ -42,73 +42,67 @@ CREDIBLE_KEYWORDS = [
     "Bloomberg", "Reuters", "Globe and Mail", "Financial Post", "CNBC", "Yahoo Finance", 
     "The Star", "BNN", "Wall Street Journal", "WSJ", "Barron's", "Financial Times", 
     "Associated Press", "AP", "Canadian Press", "GlobeNewswire", "CNW Group", 
-    "PR Newswire", "Business Wire", "BusinessWire", "Accesswire", "Newsfile",
-    "Morningstar", "Seeking Alpha", "MarketWatch", "Newswire", "TMX"
+    "PR Newswire", "Business Wire", "BusinessWire", "Accesswire", "Newsfile", "Marketwired",
+    "Morningstar", "Barchart", "Seeking Alpha", "MarketWatch", "Newswire", "TMX"
 ]
 
-# Updated with user-requested low-quality sources
 NON_CREDIBLE_SOURCES = ["magaproject", "coinmarketcap", "iowa capital dispatch", "crypto", "bitcoin", "blockchain", "investing.com"]
 
 def classify_source(source_name):
     if not source_name: return "Other"
     source_lower = str(source_name).lower()
-    
-    # Check for junk sources
     if any(junk in source_lower for junk in NON_CREDIBLE_SOURCES):
         return "Other"
-        
     if any(k.lower() in source_lower for k in CREDIBLE_KEYWORDS):
         return "Credible"
-    
-    # Social Media
     if any(social in source_lower for social in ["twitter", "x.com", "reddit", "stocktwits", "facebook"]):
         return "Social Media"
-        
     return "Other"
 
-# --- 3. THE SCANNER WITH UNIFIED VALIDATION ---
+# --- 3. THE SCANNER ---
 def get_google_news(search_term, display_name, validation_list):
-    # REMOVED strict exact matching for subsidiaries (less strict query)
     query = quote(f'{search_term} when:14d')
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
     
     if hasattr(ssl, '_create_unverified_context'):
         ssl._create_default_https_context = ssl._create_unverified_context
         
-    feed = feedparser.parse(url)
-    results = []
-    
-    for entry in feed.entries[:30]:
-        headline = entry.title
-        headline_lower = headline.lower()
+    try:
+        feed = feedparser.parse(url)
+        results = []
         
-        # --- UNIFIED HEADLINE VALIDATION ---
-        # Checks if the entity name is in the headline. 
-        # This applies the same quality control to subsidiaries as the core coverage.
-        if not any(val.lower() in headline_lower for val in validation_list):
-            continue
+        for entry in feed.entries[:30]:
+            headline = entry.title
+            headline_lower = headline.lower()
+            
+            # UNIFIED VALIDATION: Check if headline contains search term or parts of it
+            # This is less strict than before to ensure we don't miss news
+            if not any(val.lower() in headline_lower for val in validation_list):
+                continue
 
-        parsed_date = entry.get('published_parsed')
-        sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
-        
-        source = "Google News"
-        if hasattr(entry, 'source'):
-            source = entry.source.get('title', 'Google News')
-        elif " - " in headline:
-            source = headline.split(" - ")[-1]
-        
-        results.append({
-            "sort_key": sort_date,
-            "Date": sort_date.strftime('%b %d, %Y'),
-            "Company": display_name,
-            "Source": source,
-            "Category": classify_source(source),
-            "Headline": headline, 
-            "Link": entry.link
-        })
-    return results
+            parsed_date = entry.get('published_parsed')
+            sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
+            
+            source = "Google News"
+            if hasattr(entry, 'source'):
+                source = entry.source.get('title', 'Google News')
+            elif " - " in headline:
+                source = headline.split(" - ")[-1]
+            
+            results.append({
+                "sort_key": sort_date,
+                "Date": sort_date.strftime('%b %d, %Y'),
+                "Company": display_name,
+                "Source": source,
+                "Category": classify_source(source),
+                "Headline": headline, 
+                "Link": entry.link
+            })
+        return results
+    except Exception:
+        return [] # Return empty list on failure rather than crashing the site
 
-# --- 4. STREAMLIT UI ---
+# --- 4. UI ---
 st.set_page_config(page_title="DivFin News Screener", page_icon="📈", layout="wide")
 
 if 'news_data' not in st.session_state:
@@ -119,14 +113,15 @@ with st.sidebar:
     st.image(LOGO_URL)
     st.title("Screener Settings")
     
+    # Sort keys for dropdown to avoid any KeyErrors
+    subs_groups = sorted([f"{k} Subs" for k in SUBS_MAP.keys()])
     dropdown_options = ["--- MASTER VIEWS ---", "Core Coverage (All Parents)", "Full Universe (Everything)"]
     dropdown_options += ["--- INDIVIDUAL PARENTS ---"] + sorted(list(CORE_TICKERS.keys()))
-    dropdown_options += ["--- SUBSIDIARY GROUPS ---"] + sorted([f"{k} Subs" for k in SUBS_MAP.keys()])
+    dropdown_options += ["--- SUBSIDIARY GROUPS ---"] + subs_groups
     
     selected_view = st.selectbox("Select Watchlist", options=dropdown_options)
     
     st.divider()
-    st.subheader("Filter by Source Tier")
     show_credible = st.checkbox("Credible / Newswires", value=True)
     show_social = st.checkbox("Social Media", value=False)
     show_other = st.checkbox("Other Sources", value=False)
@@ -136,42 +131,44 @@ with st.sidebar:
 
 st.title("DivFin News Screener")
 
-# Building the unified task list (search_term, display_name, validation_list)
 search_tasks = []
+# Logic to handle the selections
 if selected_view == "Core Coverage (All Parents)":
     for parent, terms in CORE_TICKERS.items():
         for t in terms: search_tasks.append((t, parent, CORE_TICKERS[parent]))
 
 elif selected_view == "Full Universe (Everything)":
-    # Core items
     for parent, terms in CORE_TICKERS.items():
         for t in terms: search_tasks.append((t, parent, CORE_TICKERS[parent]))
-    # Subsidiary items
     for parent, subs in SUBS_MAP.items():
-        for s in subs: search_tasks.append((s, s, [s]))
+        for s in subs: search_tasks.append((s, s, [s, parent])) # Validate against sub name OR parent name
 
 elif selected_view in CORE_TICKERS:
     for t in CORE_TICKERS[selected_view]: 
         search_tasks.append((t, selected_view, CORE_TICKERS[selected_view]))
 
-elif selected_view.replace(" Subs", "") in SUBS_MAP:
+elif selected_view.endswith(" Subs"):
     p_name = selected_view.replace(" Subs", "")
-    for s in SUBS_MAP[p_name]: 
-        # Subsidiaries now use their own name for headline validation
-        search_tasks.append((s, s, [s]))
+    if p_name in SUBS_MAP:
+        for s in SUBS_MAP[p_name]: 
+            # Sub validation now includes the parent name as a fallback
+            search_tasks.append((s, s, [s, p_name]))
 
+# --- EXECUTION ---
 if not selected_view.startswith("---"):
     if st.button(f"Search {selected_view}", use_container_width=True):
         all_hits = []
-        with st.spinner(f'Applying unified filters to {selected_view}...'):
-            with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-                # All tasks now use the unified get_google_news logic
+        with st.spinner(f'Searching signals for {selected_view}...'):
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
                 future_to_company = {executor.submit(get_google_news, task[0], task[1], task[2]): task[0] for task in search_tasks}
                 for future in concurrent.futures.as_completed(future_to_company):
-                    all_hits.extend(future.result())
+                    try:
+                        all_hits.extend(future.result())
+                    except Exception:
+                        continue # Skip failed threads
         st.session_state.news_data = all_hits
 
-# --- 5. CATEGORY FILTERING ---
+# --- DISPLAY ---
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data)
     df = df.sort_values(by="sort_key", ascending=False)
@@ -186,7 +183,7 @@ if st.session_state.news_data:
     if keyword_filter:
         df = df[df['Headline'].str.lower().str.contains(keyword_filter)]
 
-    st.success(f"Displaying {len(df)} headlines with standardized name-in-title validation.")
+    st.success(f"Found {len(df)} headlines.")
     st.dataframe(
         df[["Date", "Company", "Category", "Source", "Headline", "Link"]], 
         column_config={"Link": st.column_config.LinkColumn("View", display_text="Open")},
