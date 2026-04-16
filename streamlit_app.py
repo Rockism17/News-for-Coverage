@@ -74,7 +74,7 @@ def get_google_news(company_name, use_exact=False):
         
     feed = feedparser.parse(url)
     results = []
-    for entry in feed.entries[:10]:
+    for entry in feed.entries[:50]:
         parsed_date = entry.get('published_parsed')
         sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
         
