@@ -6,7 +6,7 @@ import ssl
 from datetime import datetime
 import concurrent.futures
 
-# --- 1. DATA STRUCTURE ---
+# --- 1. DATA STRUCTURE (Expanded Dominion & Diversified Tickers) ---
 SUBS_MAP = {
     "Alaris": ["3E, LLC", "Accscient, LLC", "Amur Financial Group", "SonoBello", "Cresa, LLC", "DNT Construction", "Edgewater Technical Associates", "Fleet Advantage", "Federal Management Partners", "GlobalWide Media", "Heritage Restoration", "Kubik, LP", "LMS Reinforcing Steel", "McCoy Roofing", "Ohana Growth Partners", "Optimus SBR", "Professional Electric Contractors", "Sagamore Plumbing", "SCR Mining & Tunnelling", "The Shipyard, LLC", "Unify Consulting", "D&M Leasing"],
     "Exchange Income": ["Canadian North", "PAL Aerospace", "PAL Airlines", "Perimeter Aviation", "Calm Air", "Bearskin Airlines", "Keewatin Air", "Regional One", "Custom Helicopters", "Moncton Flight College", "Newfoundland Helicopters", "Air Borealis", "Mach2", "BC Medevac", "Northern Mat and Bridge", "Spartan Mat", "WesTower Communications", "Quest Window Systems", "BVGlazing Systems", "Ben Machine Products", "Stainless Fabrication", "DryAir Manufacturing", "Hansen Industries", "Overlanders Manufacturing", "LV Control Mfg", "Water Blast Manufacturing", "Duhamel Sawmill"],
@@ -25,9 +25,9 @@ CORE_TICKERS = {
     "Alaris": ["Alaris Equity Partners", "AD.TO"],
     "Bridgemarq": ["Bridgemarq Real Estate Services", "BRE.TO"],
     "Canaccord": ["Canaccord Genuity", "CF.TO"],
-    # EXPANDED SEARCH FOR DIV:
     "Diversified Royalty": ["Diversified Royalty Corp", "DIV.TO", "DIV Royalty", "DIV", "TSX:DIV"],
-    "Dominion Lending": ["Dominion Lending Centres", "DLCG.TO"],
+    # EXPANDED DOMINION SEARCH: Added DLC Group and DLCG
+    "Dominion Lending": ["Dominion Lending Centres", "DLCG.TO", "DLC Group", "DLCG", "TSX:DLCG"],
     "Exchange Income": ["Exchange Income", "EIF.TO"],
     "Fairfax": ["Fairfax Financial Holdings", "FFH.TO"],
     "goeasy": ["goeasy Ltd", "GSY.TO"],
@@ -38,13 +38,13 @@ CORE_TICKERS = {
     "Westaim": ["Westaim Corporation", "WED.TO"]
 }
 
-# --- 2. SOURCE CLASSIFICATION ---
+# --- 2. SOURCE CLASSIFICATION (Strengthened for TMX/Newsfile) ---
 CREDIBLE_KEYWORDS = [
     "Bloomberg", "Reuters", "Globe and Mail", "Financial Post", "CNBC", "Yahoo Finance", 
     "The Star", "BNN", "Wall Street Journal", "WSJ", "Barron's", "Financial Times", 
     "Associated Press", "AP", "Canadian Press", "GlobeNewswire", "CNW Group", 
     "PR Newswire", "Business Wire", "BusinessWire", "Accesswire", "Newsfile", "Marketwired",
-    "Morningstar", "Barchart", "Seeking Alpha", "MarketWatch", "Newswire", "TMX"
+    "Morningstar", "Barchart", "Seeking Alpha", "MarketWatch", "Newswire", "TMX", "GlobeNews"
 ]
 
 SOCIAL_KEYWORDS = ["Twitter", "X.com", "Reddit", "Stocktwits", "Facebook", "LinkedIn", "YouTube"]
@@ -58,10 +58,11 @@ def classify_source(source_name):
         return "Social Media"
     return "Other"
 
-# --- 3. THE SCANNER WITH STRICT DIV FILTER ---
+# --- 3. THE SCANNER ---
 def get_google_news(search_term, parent_name, use_exact=False):
     actual_search = f'"{search_term}"' if use_exact else search_term
-    query = quote(f'{actual_search} when:7d')
+    # Changed to 14d to ensure releases from 1 week ago (like the April 9 DLC release) aren't missed
+    query = quote(f'{actual_search} when:14d')
     url = f"https://news.google.com/rss/search?q={query}&hl=en-CA&gl=CA&ceid=CA:en"
     
     if hasattr(ssl, '_create_unverified_context'):
@@ -70,18 +71,16 @@ def get_google_news(search_term, parent_name, use_exact=False):
     feed = feedparser.parse(url)
     results = []
     
-    for entry in feed.entries[:20]:
+    for entry in feed.entries[:30]: # Increased to 30 to prevent press releases from being pushed off the list
         headline = entry.title
         snippet = entry.get('summary', '').lower()
         headline_lower = headline.lower()
 
         # --- STRICT FILTER FOR DIVERSIFIED ROYALTY ---
-        # If the search is for Diversified Royalty terms, ensure the article is actually about them.
-        # This prevents news about generic "Music Royalties" or "Pharma Royalties" from appearing.
         if parent_name == "Diversified Royalty":
             if "diversified" not in headline_lower and "diversified" not in snippet:
                 if "royalty corp" not in headline_lower and "royalty corp" not in snippet:
-                    continue # Skip if it doesn't meet the strict criteria
+                    continue 
 
         parsed_date = entry.get('published_parsed')
         sort_date = datetime(*parsed_date[:6]) if parsed_date else datetime(1900, 1, 1)
@@ -131,7 +130,6 @@ with st.sidebar:
 
 st.title("DivFin News Screener")
 
-# Building the task list (term, parent_name, is_sub)
 search_tasks = []
 if selected_view == "Core Coverage (All Parents)":
     for parent, terms in CORE_TICKERS.items():
@@ -152,7 +150,6 @@ if not selected_view.startswith("---"):
         all_hits = []
         with st.spinner(f'Searching {len(search_tasks)} terms...'):
             with concurrent.futures.ThreadPoolExecutor(max_workers=15) as executor:
-                # Passing (term, parent_name, use_exact)
                 future_to_company = {executor.submit(get_google_news, task[0], task[1], task[2]): task[0] for task in search_tasks}
                 for future in concurrent.futures.as_completed(future_to_company):
                     all_hits.extend(future.result())
@@ -161,6 +158,7 @@ if not selected_view.startswith("---"):
 # --- 5. CATEGORY FILTERING LOGIC ---
 if st.session_state.news_data:
     df = pd.DataFrame(st.session_state.news_data)
+    # Keeping all duplicates as requested
     df = df.sort_values(by="sort_key", ascending=False)
     
     allowed_categories = []
@@ -173,7 +171,7 @@ if st.session_state.news_data:
     if keyword_filter:
         df = df[df['Headline'].str.lower().str.contains(keyword_filter)]
 
-    st.success(f"Displaying {len(df)} headlines.")
+    st.success(f"Displaying {len(df)} headlines for {selected_view}.")
     st.dataframe(
         df[["Date", "Company", "Category", "Source", "Headline", "Link"]], 
         column_config={"Link": st.column_config.LinkColumn("View", display_text="Open")},
