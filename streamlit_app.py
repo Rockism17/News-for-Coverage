@@ -22,7 +22,8 @@ SUBS_MAP = {
 }
 
 CORE_TICKERS = {
-    "Alaris": ["Alaris", "AD.TO"],
+    # Expanded Alaris keywords to ensure press releases aren't filtered
+    "Alaris": ["Alaris Equity Partners", "Alaris", "TSX:AD", "AD.UN", "AD.TO"],
     "Bridgemarq": ["Bridgemarq", "BRE.TO"],
     "Canaccord": ["Canaccord", "CF.TO"],
     "Diversified Royalty": ["Diversified Royalty", "DIV.TO", "DIV"],
@@ -38,25 +39,38 @@ CORE_TICKERS = {
 }
 
 # --- 2. SOURCE CLASSIFICATION ---
+# Added broader newswire and press release terms
 CREDIBLE_KEYWORDS = [
     "Bloomberg", "Reuters", "Globe and Mail", "Financial Post", "CNBC", "Yahoo Finance", 
     "The Star", "BNN", "Wall Street Journal", "WSJ", "Barron's", "Financial Times", 
-    "Associated Press", "AP", "Canadian Press", "GlobeNewswire", "CNW Group", 
-    "PR Newswire", "Business Wire", "BusinessWire", "Accesswire", "Newsfile", "Marketwired",
-    "Morningstar", "Barchart", "Seeking Alpha", "MarketWatch", "Newswire", "TMX"
+    "Associated Press", "AP", "Canadian Press", "GlobeNewswire", "Globe Newswire", 
+    "CNW Group", "PR Newswire", "Business Wire", "BusinessWire", "Accesswire", 
+    "Newsfile", "Marketwired", "Morningstar", "Barchart", "Seeking Alpha", 
+    "MarketWatch", "Newswire", "TMX", "Press Release"
 ]
 
 NON_CREDIBLE_SOURCES = ["magaproject", "coinmarketcap", "iowa capital dispatch", "crypto", "bitcoin", "blockchain", "investing.com"]
 
-def classify_source(source_name):
+def classify_source(source_name, company_name=""):
     if not source_name: return "Other"
     source_lower = str(source_name).lower()
+    
+    # 1. Filter junk first
     if any(junk in source_lower for junk in NON_CREDIBLE_SOURCES):
         return "Other"
+    
+    # 2. Check if the source is the company itself (High Signal)
+    if company_name and company_name.lower() in source_lower:
+        return "Credible"
+    
+    # 3. Check official credible keywords
     if any(k.lower() in source_lower for k in CREDIBLE_KEYWORDS):
         return "Credible"
+    
+    # 4. Social Media
     if any(social in source_lower for social in ["twitter", "x.com", "reddit", "stocktwits", "facebook"]):
         return "Social Media"
+    
     return "Other"
 
 # --- 3. THE SCANNER ---
@@ -92,7 +106,7 @@ def get_google_news(search_term, display_name, validation_list):
             "Date": sort_date.strftime('%b %d, %Y'),
             "Company": display_name,
             "Source": source,
-            "Category": classify_source(source),
+            "Category": classify_source(source, display_name), # Pass company name to validation
             "Headline": headline, 
             "Link": entry.link
         })
@@ -117,8 +131,6 @@ with st.sidebar:
     
     st.divider()
     
-    # --- DYNAMIC SOURCE SELECTION ---
-    # Automatically toggle all sources if a "Subs" group is selected
     is_subs_selected = selected_view.endswith(" Subs")
     
     st.subheader("Filter by Source Tier")
